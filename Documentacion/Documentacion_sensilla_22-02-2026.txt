@@ -1,0 +1,54 @@
+📘 Documentación Técnica: Proyecto Serenity
+
+
+Sistema de Acompañamiento Emocional Preventivo - UNACAR
+
+1. Arquitectura de Archivos (Estructura Modular)
+
+El sistema se ha dividido bajo el principio de Separación de Responsabilidades, facilitando el mantenimiento y la actualización de componentes individuales.
+
+
+Archivo	Responsabilidad
+
+
+main.py	Director de Orquesta. Gestiona la interfaz de Telegram, recibe mensajes y audios, y coordina las llamadas a los otros módulos.
+
+ai_core.py	El Cerebro. Gestiona la lógica de Inteligencia Artificial, estructura los prompts, limpia las respuestas JSON y analiza el riesgo.
+
+database.py	El Archivero. Controla todas las consultas SQL a la base de datos local (SQLite). Guarda usuarios, mensajes y alertas.
+
+alertas.py	El Comunicador. Maneja los servicios externos (Gmail para reportes en Excel y Twilio para alertas de WhatsApp).
+
+config.py	El Almacén. Centraliza todas las variables de entorno, rutas de archivos y configuración de logging.
+
+
+2. Flujo de Datos de un Mensaje
+
+
+Entrada: El usuario envía un mensaje de texto o voz a través de Telegram.
+
+Procesamiento de Voz: Si es audio, main.py usa Faster-Whisper localmente para transcribirlo sin salir de tu computadora.
+
+Análisis de IA: El texto llega a ai_core.py, que consulta el historial en database.py y envía todo a la IA.
+
+Evaluación de Riesgo: La IA devuelve una respuesta empática y un nivel de riesgo (bajo/medio/alto).
+
+Almacenamiento: El mensaje y el análisis se guardan automáticamente en la DB.
+
+Alerta Crítica: Si el riesgo es alto, main.py activa alertas.py para notificar al orientador por WhatsApp y Correo.
+
+
+
+3. Seguridad y Privacidad
+
+
+Aislamiento de Credenciales: El sistema utiliza un archivo .env para evitar que tokens y contraseñas queden expuestos en el código fuente.
+
+Privacidad Local: El procesamiento de voz (Whisper) y la base de datos de usuarios son locales, asegurando que los datos sensibles no viajen innecesariamente por la red.
+
+Modularidad: Al separar la IA, el sistema está listo para migrar a un modelo local (como Llama 3) para garantizar 100% de privacidad institucional.
+
+4. Requisitos de Ejecución
+Entorno Virtual: Python 3.11+ dentro de un venv.
+
+Dependencias Clave: python-telegram-bot, openai, faster-whisper, pandas, twilio.

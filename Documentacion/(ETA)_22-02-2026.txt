@@ -1,0 +1,93 @@
+🛠️ Especificación Técnica de Arquitectura (ETA): Proyecto Serenity
+
+
+1. Resumen del Sistema
+
+
+Serenity es un middleware de acompañamiento psicológico basado en Arquitectura de Micro-servicios Modulares. Utiliza Procesamiento de Lenguaje Natural (NLP) para la detección de riesgos en tiempo real y transcripción asíncrona de audio.
+
+
+2. Diagrama de Arquitectura de Software
+
+véase (EAT) _2_22-02-2026.txt de la carpeta Documentacion
+
+3. Especificación de Módulos (Componentes)
+
+
+3.1. Núcleo de Configuración (config.py)
+
+Patrón: Singleton / Global Configuration.
+
+Funcionalidad: Implementa python-dotenv para la inyección de variables de entorno. Centraliza el manejo de rutas mediante pathlib para garantizar compatibilidad multiplataforma (Windows/Linux).
+
+Variables Críticas: TOKEN_TELEGRAM, OPENAI_API_KEY, db_file.
+
+3.2. Capa de Persistencia (database.py)
+
+Motor: SQLite3.
+
+Esquema de Datos:
+
+usuarios: Almacena metadatos del perfil de Telegram (ID único, nombres).
+
+conversaciones: Historial relacional (1:N) con roles de user y assistant.
+
+alertas: Log de incidencias con niveles de riesgo indexados.
+
+perfil_emocional: Persistencia de análisis psicológicos longitudinales.
+
+3.3. Motor de Inferencia y NLP (ai_core.py)
+
+Lógica de Prompting: Implementa System Role Prompting para forzar salidas en formato JSON estricto.
+
+Procesamiento:
+
+Context Window: Gestión de memoria mediante el envío de los últimos 10 turnos de conversación (recuperados de la DB).
+
+Extracción de JSON: Regex dinámico para limpiar noise en la respuesta del LLM.
+
+Variables de salida: respuesta, nivel_riesgo (bajo/medio/alto), tema, razon, dependencia.
+
+3.4. Motor de Audio (Integrado en main.py)
+
+Librería: Faster-Whisper (Implementación optimizada de OpenAI Whisper en CTranslate2).
+
+Hardware: Configurado para ejecución en CPU con cuantización int8 para reducir el consumo de RAM.
+
+Flujo: Descarga temporal (.ogg) -> Transcripción (segmentada) -> Inyección en el flujo de texto de manejar_mensaje.
+
+3.5. Módulo de Comunicación y Alertas (alertas.py)
+
+Email: Protocolo SMTP (Puerto 587 con TLS). Genera buffers de datos con Pandas para exportación inmediata a .xlsx.
+
+WhatsApp: Integración vía Twilio REST API utilizando el canal Sandbox o Producción.
+
+
+4. Flujo de Secuencia (Request-Response)
+
+
+Ingesta: Captura de eventos vía Webhook o Long Polling (Telegram).
+
+Validación: Verificación de existencia del user_id en la tabla usuarios.
+
+Inferencia: * ai_core genera el prompt dinámico.
+
+Llamada asíncrona a la API del LLM.
+
+Middleware de Riesgo:
+
+Si nivel_riesgo == 'alto': Disparo de eventos en alertas.py.
+
+Persistencia: Commit de la interacción en conversaciones.
+
+Salida: Despacho de respuesta al cliente Telegram.
+
+
+5. Roadmap de Refactorización Técnica
+
+
+Fase 3 (Próxima): Sustitución del cliente OpenAI por GroqClient o Ollama en ai_core.py.
+
+Fase 4: Implementación de aiosqlite para operaciones de base de datos no bloqueantes (asíncronas).
+
+Fase 5: (por ver)Migración del WhisperModel a un servidor de inferencia dedicado para reducir carga en el main.py.
