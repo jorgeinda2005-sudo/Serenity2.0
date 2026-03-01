@@ -25,6 +25,7 @@ PDF_DIRECTORIO = os.path.join(BASE_DIR, "Directorio Psicopedagógico.pdf")
 # --- VARIABLES DE ENTORNO (Contraseñas y Tokens) ---
 TOKEN_TELEGRAM = os.getenv("TELEGRAM_TOKEN", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GMAIL_USER = os.getenv("GMAIL_USER", "")
 GMAIL_PASS = os.getenv("GMAIL_PASS", "")
 TWILIO_SID = os.getenv("TWILIO_SID", "")

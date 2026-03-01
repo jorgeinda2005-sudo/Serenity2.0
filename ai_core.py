@@ -1,11 +1,14 @@
 import json
 import re
-import requests
-from config import logger
+from openai import AsyncOpenAI
+from config import logger, GROQ_API_KEY
 from database import guardar_mensaje, obtener_historial, registrar_alerta
 
-# Dirección de tu cerebro local
-OLLAMA_URL = "http://localhost:11434/api/chat"
+# Cliente de Groq para usar Llama 3.1 70B y Whisper
+groq_client = AsyncOpenAI(
+    api_key=GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1"
+)
 
 def extraer_json(texto):
     """Mantiene tu lógica original de limpieza."""
@@ -13,7 +16,7 @@ def extraer_json(texto):
     return match.group(0) if match else texto
 
 async def obtener_respuesta_ia(user_id, mensaje_usuario):
-    """Cambio exclusivo de MLL a Llama 3.1 local."""
+    """Cambio a Llama 3.1 70B mediante la API de Groq."""
     historial_previo = obtener_historial(user_id, limite=10)
     
     system_prompt = (
@@ -23,32 +26,32 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
         '"tema": "tema detectado", "razon": "por qué ese riesgo", "dependencia": boolean}'
     )
 
-    # Cuerpo de la petición para Ollama manteniendo tus parámetros
-    payload = {
-        "model": "llama3.1", 
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            *historial_previo,
-            {"role": "user", "content": mensaje_usuario}
-        ],
-        "stream": False,
-        "format": "json"
-    }
+    # Convertir el historial al formato que requiere la API
+    mensajes_api = [{"role": "system", "content": system_prompt}]
+    for msg in historial_previo:
+        mensajes_api.append({"role": msg["role"], "content": msg["content"]})
+    
+    mensajes_api.append({"role": "user", "content": mensaje_usuario})
 
     try:
-        # Petición al motor que corre en tu 4060
-        response = requests.post(OLLAMA_URL, json=payload)
-        response.raise_for_status()
+        # Petición a Groq
+        response = await groq_client.chat.completions.create(
+            model="llama-3.1-70b-versatile",
+            messages=mensajes_api,
+            temperature=0.7,
+            response_format={"type": "json_object"}
+        )
         
-        resultado = response.json()
-        contenido = resultado['message']['content']
+        contenido = response.choices[0].message.content
         data = json.loads(extraer_json(contenido))
         
+        # Guardar en base de datos
         guardar_mensaje(user_id, "user", mensaje_usuario)
         guardar_mensaje(user_id, "assistant", data["respuesta"])
         
-        if data["nivel_riesgo"] in ["medio", "alto"]:
-            registrar_alerta(user_id, data["nivel_riesgo"], data["tema"], data["razon"])
+        # Registrar alerta si es necesario
+        if data.get("nivel_riesgo") in ["medio", "alto"]:
+            registrar_alerta(user_id, data.get("nivel_riesgo"), data.get("tema"), data.get("razon"))
             
         return data
 
