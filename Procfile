@@ -1,1 +1,1 @@
-worker: python serenity.py
+worker: python main.py
