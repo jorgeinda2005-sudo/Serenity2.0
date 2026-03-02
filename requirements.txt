@@ -8,6 +8,7 @@ psycopg2-binary>=2.9.9
 
 # --- INTELIGENCIA ARTIFICIAL (API de Groq) ---
 groq>=0.4.0
+openai>=1.12.0
 
 # --- REPORTES (Excel) ---
 pandas>=2.0.0
