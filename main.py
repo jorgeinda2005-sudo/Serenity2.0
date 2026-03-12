@@ -154,7 +154,7 @@ def main():
  
     logger.info("Serenity está en línea...")
  
-    app.run_polling(poll_interval=0.0, timeout=20, bootstrap_retries=-1)
+    app.run_polling(poll_interval=0.0, timeout=20, bootstrap_retries=-1, drop_pending_updates=True)
  
 if __name__ == "__main__":
     main()
