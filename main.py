@@ -127,14 +127,12 @@ async def manejar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await manejar_mensaje(update, context)
  
 def main():
-    # Asegurarnos de que la DB exista
     crear_base_datos()
- 
+
     if not TOKEN_TELEGRAM:
         logger.error("No se encontró el TOKEN_TELEGRAM en el archivo .env")
         return
- 
-    # Configurar el Bot con timeouts de red profesional
+
     app = (
         Application.builder()
         .token(TOKEN_TELEGRAM)
@@ -144,17 +142,27 @@ def main():
         .pool_timeout(30)
         .build()
     )
- 
-    # Manejadores
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", menu))
     app.add_handler(CommandHandler("directorio", directorio))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, manejar_audio))
- 
-    logger.info("Serenity está en línea...")
- 
-    app.run_polling(poll_interval=0.0, timeout=20, bootstrap_retries=-1, drop_pending_updates=True)
- 
+
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+    PORT = int(os.getenv("PORT", "8080"))
+
+    if WEBHOOK_URL:
+        webhook_url = f"{WEBHOOK_URL}/{TOKEN_TELEGRAM}"
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=TOKEN_TELEGRAM,
+            webhook_url=webhook_url,
+        )
+    else:
+        logger.info("Serenity en línea con POLLING (modo local)...")
+        app.run_polling(poll_interval=0.0, timeout=20, bootstrap_retries=-1, drop_pending_updates=True)
+
 if __name__ == "__main__":
     main()
