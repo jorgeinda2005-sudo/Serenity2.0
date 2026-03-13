@@ -1,9 +1,6 @@
 """
 database.py — Versión PostgreSQL para Serenity
 ================================================
-Reemplaza el database.py original (SQLite) por este cuando
-ya tengas PostgreSQL configurado y la migración hecha.
-
 Requiere en el .env:
     DATABASE_URL=postgresql://usuario:contraseña@host:5432/serenity_db
 """
@@ -19,8 +16,6 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-# ── Pool de conexiones (soporta usuarios simultáneos sin problemas) ────────────
-# minconn=2 conexiones siempre activas, maxconn=20 para picos de uso
 _pool = None
 
 def get_pool():
@@ -51,13 +46,30 @@ def crear_base_datos():
         with conn.cursor() as cur:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS usuarios (
-                    user_id        BIGINT PRIMARY KEY,
-                    username       TEXT,
-                    first_name     TEXT,
-                    last_name      TEXT,
-                    fecha_registro TIMESTAMPTZ
+                    user_id          BIGINT PRIMARY KEY,
+                    username         TEXT,
+                    first_name       TEXT,
+                    last_name        TEXT,
+                    nombre_completo  TEXT,
+                    matricula        TEXT,
+                    correo           TEXT,
+                    telefono         TEXT,
+                    registrado       BOOLEAN DEFAULT FALSE,
+                    fecha_registro   TIMESTAMPTZ
                 );
             """)
+
+            # Migración: agregar columnas si ya existía la tabla sin ellas
+            for col, tipo in [
+                ("nombre_completo", "TEXT"),
+                ("matricula",       "TEXT"),
+                ("correo",          "TEXT"),
+                ("telefono",        "TEXT"),
+                ("registrado",      "BOOLEAN DEFAULT FALSE"),
+            ]:
+                cur.execute(f"""
+                    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS {col} {tipo};
+                """)
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS conversaciones (
@@ -98,7 +110,6 @@ def crear_base_datos():
                 );
             """)
 
-            # Índices para consultas rápidas por user_id
             cur.execute("CREATE INDEX IF NOT EXISTS idx_conv_user    ON conversaciones(user_id);")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_alertas_user ON alertas(user_id);")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_perfil_user  ON perfil_emocional(user_id);")
@@ -131,6 +142,72 @@ def guardar_usuario(user_id, username, first_name, last_name):
         release_conn(conn)
 
 
+def completar_registro(user_id, nombre_completo, matricula, correo, telefono):
+    """Guarda los datos de registro del estudiante."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE usuarios
+                SET nombre_completo = %s,
+                    matricula       = %s,
+                    correo          = %s,
+                    telefono        = %s,
+                    registrado      = TRUE
+                WHERE user_id = %s;
+            """, (nombre_completo, matricula, correo, telefono, user_id))
+        conn.commit()
+        logger.info(f"Registro completado para user_id {user_id}")
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error completando registro: {e}")
+    finally:
+        release_conn(conn)
+
+
+def usuario_registrado(user_id):
+    """Verifica si el usuario ya completó el registro."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT registrado FROM usuarios WHERE user_id = %s;
+            """, (user_id,))
+            row = cur.fetchone()
+            return bool(row and row[0])
+    except Exception as e:
+        logger.error(f"Error verificando registro: {e}")
+        return False
+    finally:
+        release_conn(conn)
+
+
+def obtener_datos_usuario(user_id):
+    """Obtiene los datos completos del usuario para alertas."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT user_id, nombre_completo, matricula, correo, telefono
+                FROM usuarios WHERE user_id = %s;
+            """, (user_id,))
+            row = cur.fetchone()
+            if row:
+                return {
+                    "id": row[0],
+                    "nombre_completo": row[1],
+                    "matricula": row[2],
+                    "correo": row[3],
+                    "telefono": row[4],
+                }
+            return {}
+    except Exception as e:
+        logger.error(f"Error obteniendo datos de usuario: {e}")
+        return {}
+    finally:
+        release_conn(conn)
+
+
 def guardar_mensaje(user_id, role, content):
     conn = get_conn()
     try:
@@ -159,7 +236,6 @@ def obtener_historial(user_id, limite=10):
                 LIMIT %s;
             """, (user_id, limite))
             rows = cur.fetchall()
-        # Invertimos para orden cronológico (viejo → nuevo)
         return [{"role": r, "content": c} for r, c in reversed(rows)]
     except Exception as e:
         logger.error(f"Error obteniendo historial: {e}")
