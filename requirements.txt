@@ -1,5 +1,5 @@
 # --- CORE Y TELEGRAM (Actualizado para Python 3.13) ---
-python-telegram-bot>=21.10
+python-telegram-bot[webhooks]>=21.10
 python-dotenv>=1.0.0
 httpx>=0.25.0
 
