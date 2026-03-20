@@ -112,6 +112,11 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     mensaje_texto = update.message.text
 
+    # Si el usuario aceptó compartir datos, entrar al flujo de registro
+    if context.user_data.get("esperando_registro") == NOMBRE:
+        context.user_data.pop("esperando_registro")
+        return await recibir_nombre(update, context)
+
     data = await obtener_respuesta_ia(user_id, mensaje_texto)
     await update.message.reply_text(data["respuesta"])
 
