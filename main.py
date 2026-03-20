@@ -1,6 +1,7 @@
 import os
 import re
 import asyncio
+from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -198,8 +199,16 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _enviar_directorio_pdf(update)
 
     if data.get("nivel_riesgo") == "alto":
-        context.user_data["alerta_pendiente"] = data.get("razon", "")
-        await preguntar_apoyo(update, context)
+        # Cooldown: no repetir la alerta si ya se mostró en los últimos 30 minutos
+        ultima_alerta = context.user_data.get("ultima_alerta")
+        cooldown_ok = (
+            ultima_alerta is None or
+            datetime.now() - ultima_alerta > timedelta(minutes=30)
+        )
+        if cooldown_ok:
+            context.user_data["alerta_pendiente"] = data.get("razon", "")
+            context.user_data["ultima_alerta"] = datetime.now()
+            await preguntar_apoyo(update, context)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
