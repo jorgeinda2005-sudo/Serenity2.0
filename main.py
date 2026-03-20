@@ -157,21 +157,18 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         matricula = context.user_data["matricula"]
         correo    = context.user_data["correo"]
         razon     = context.user_data.get("alerta_pendiente", "")
-        psicologo = PSICOLOGOS[0]
 
         completar_registro(user_id, nombre, matricula, correo, texto)
 
         await update.message.reply_text(
             "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
-            "Hay una persona especializada que puede acompañarte "
-            "de una manera más profunda. Te comparto sus datos por si "
-            "en algún momento te sientes listo/a para dar ese paso:\n\n"
-            f"👤 *{psicologo['nombre']}*\n"
-            f"📧 {psicologo['correo']}\n"
-            f"📱 {psicologo['telefono']}\n\n"
+            "Hay personas especializadas que pueden acompañarte "
+            "de una manera más profunda. Te comparto el directorio "
+            "para que puedas contactar al psicólogo que más te convenga:\n\n"
             "No tienes que hacer nada ahora. Yo sigo aquí contigo 🤗",
             parse_mode="Markdown"
         )
+        await _enviar_directorio_pdf(update)
 
         enviar_whatsapp_emergencia(
             f"🚨 Riesgo ALTO\n"
@@ -179,9 +176,10 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Correo: {correo}\nTel: {texto}\nMotivo: {razon}"
         )
         try:
+            usuario_info = obtener_datos_usuario(user_id)
             enviar_correo_alerta(
-                psicologo["correo"],
-                obtener_datos_usuario(user_id),
+                "mduarte@delfin.unacar.mx",
+                usuario_info,
                 f"El alumno solicitó apoyo voluntariamente. Motivo: {razon}"
             )
         except Exception as e:
