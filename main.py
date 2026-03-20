@@ -193,7 +193,8 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = await obtener_respuesta_ia(user_id, texto)
     await update.message.reply_text(data["respuesta"])
 
-    if data.get("enviar_directorio"):
+    # Solo mandar PDF si no hay riesgo alto (en ese caso el PDF va después del consentimiento)
+    if data.get("enviar_directorio") and data.get("nivel_riesgo") != "alto":
         await _enviar_directorio_pdf(update)
 
     if data.get("nivel_riesgo") == "alto":
