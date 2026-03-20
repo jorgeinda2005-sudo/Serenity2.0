@@ -4,7 +4,7 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
-    CallbackQueryHandler, filters, ContextTypes, ConversationHandler
+    CallbackQueryHandler, filters, ContextTypes
 )
 
 from config import TOKEN_TELEGRAM, TMP_DIR, PDF_DIRECTORIO, logger
@@ -16,16 +16,10 @@ from ai_core import obtener_respuesta_ia, groq_client
 from alertas import enviar_correo_alerta, enviar_whatsapp_emergencia
 
 # ── Estados del flujo de registro ─────────────────────────────────────────────
-NOMBRE, MATRICULA, CORREO, TELEFONO = range(4)
-
-# ── Datos de psicólogos UNACAR ─────────────────────────────────────────────────
-PSICOLOGOS = [
-    {"nombre": "Dra. María del Carmen Duarte", "correo": "mduarte@unacar.mx",   "telefono": "938-XXX-XXXX"},
-    {"nombre": "Celia Ramos",                  "correo": "cramos@unacar.mx",    "telefono": "938-XXX-XXXX"},
-    {"nombre": "Rossana Carrillo",             "correo": "rcarrillo@unacar.mx", "telefono": "938-XXX-XXXX"},
-    {"nombre": "Gilberto Franco",              "correo": "gfranco@unacar.mx",   "telefono": "938-XXX-XXXX"},
-    {"nombre": "Jovanna Martínez",             "correo": "jmartinez@unacar.mx", "telefono": "938-XXX-XXXX"},
-]
+ESTADO_NOMBRE    = "nombre"
+ESTADO_MATRICULA = "matricula"
+ESTADO_CORREO    = "correo"
+ESTADO_TELEFONO  = "telefono"
 
 # ── Líneas de crisis ───────────────────────────────────────────────────────────
 NUMEROS_CRISIS = (
@@ -50,25 +44,15 @@ PALABRAS_INAPROPIADAS = [
 def contiene_insulto(texto):
     return any(p in texto.lower() for p in PALABRAS_INAPROPIADAS)
 
-def texto_todos_psicologos():
-    """Genera el texto con todos los psicólogos."""
-    lineas = ["👥 *Psicólogos del Departamento Psicopedagógico UNACAR:*\n"]
-    for p in PSICOLOGOS:
-        lineas.append(
-            f"👤 *{p['nombre']}*\n"
-            f"📧 {p['correo']}\n"
-            f"📱 {p['telefono']}\n"
-        )
-    return "\n".join(lineas)
-
 
 # ══════════════════════════════════════════════════════════════════════════════
-# COMANDOS PRINCIPALES
+# COMANDOS
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     guardar_usuario(user.id, user.username, user.first_name, user.last_name)
+    context.user_data.clear()
     await update.message.reply_text(
         f"Hola {user.first_name} 👋 Soy *Serenity*, tu espacio seguro en la UNACAR.\n\n"
         "🔒 *Tu privacidad es lo primero:*\n"
@@ -83,7 +67,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto_menu = (
+    await update.message.reply_text(
         "📋 *Menú de Serenity*\n\n"
         "💬 *Hablar conmigo* — Escríbeme cómo te sientes, estoy aquí para escucharte.\n\n"
         "🎤 *Mensaje de voz* — También puedes mandarme un audio.\n\n"
@@ -94,9 +78,9 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Comandos:\n"
         "/start — Bienvenida\n"
         "/menu — Ver este menú\n"
-        "/directorio — Directorio de psicólogos en PDF"
+        "/directorio — Directorio de psicólogos en PDF",
+        parse_mode="Markdown"
     )
-    await update.message.reply_text(texto_menu, parse_mode="Markdown")
 
 
 async def directorio(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -105,19 +89,110 @@ async def directorio(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# MENSAJE PRINCIPAL
+# MENSAJE PRINCIPAL — todo el estado se maneja aquí
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    mensaje_texto = update.message.text
+    texto   = update.message.text.strip()
+    estado  = context.user_data.get("estado")
 
-    # Si el usuario aceptó compartir datos, entrar al flujo de registro
-    if context.user_data.get("esperando_registro") == NOMBRE:
-        context.user_data.pop("esperando_registro")
-        return await recibir_nombre(update, context)
+    # ── Flujo de registro ──────────────────────────────────────────────────────
+    if estado == ESTADO_NOMBRE:
+        if contiene_insulto(texto) or len(texto) < 5 or not re.search(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ]', texto):
+            await update.message.reply_text("⚠️ Por favor ingresa un nombre válido. ¿Cuál es tu nombre completo?")
+            return
+        context.user_data["nombre_completo"] = texto
+        context.user_data["estado"] = ESTADO_MATRICULA
+        await update.message.reply_text(
+            f"Gracias, *{texto}* ✅\n\nAhora dime tu *matrícula* (6 dígitos numéricos):",
+            parse_mode="Markdown"
+        )
+        return
 
-    data = await obtener_respuesta_ia(user_id, mensaje_texto)
+    if estado == ESTADO_MATRICULA:
+        if not re.fullmatch(r'\d{6}', texto) or contiene_insulto(texto):
+            await update.message.reply_text(
+                "⚠️ La matrícula debe ser exactamente *6 dígitos numéricos* (ej. 213456):",
+                parse_mode="Markdown"
+            )
+            return
+        context.user_data["matricula"] = texto
+        context.user_data["estado"] = ESTADO_CORREO
+        correo_esperado = f"{texto}@mail.unacar.mx"
+        await update.message.reply_text(
+            f"Matrícula *{texto}* ✅\n\n"
+            f"Ahora tu *correo institucional* (formato: `{correo_esperado}`):",
+            parse_mode="Markdown"
+        )
+        return
+
+    if estado == ESTADO_CORREO:
+        matricula       = context.user_data.get("matricula", "")
+        correo_esperado = f"{matricula}@mail.unacar.mx"
+        correo          = texto.lower()
+        if correo != correo_esperado or contiene_insulto(correo):
+            await update.message.reply_text(
+                f"⚠️ Debe ser exactamente: `{correo_esperado}`\nInténtalo de nuevo:",
+                parse_mode="Markdown"
+            )
+            return
+        context.user_data["correo"] = correo
+        context.user_data["estado"] = ESTADO_TELEFONO
+        await update.message.reply_text(
+            "Correo verificado ✅\n\nPor último, tu *número de teléfono* (10 dígitos):",
+            parse_mode="Markdown"
+        )
+        return
+
+    if estado == ESTADO_TELEFONO:
+        if not re.fullmatch(r'\d{10}', texto) or contiene_insulto(texto):
+            await update.message.reply_text(
+                "⚠️ El número debe tener exactamente *10 dígitos* (ej. 9381234567):",
+                parse_mode="Markdown"
+            )
+            return
+
+        nombre    = context.user_data["nombre_completo"]
+        matricula = context.user_data["matricula"]
+        correo    = context.user_data["correo"]
+        razon     = context.user_data.get("alerta_pendiente", "")
+        psicologo = PSICOLOGOS[0]
+
+        completar_registro(user_id, nombre, matricula, correo, texto)
+
+        await update.message.reply_text(
+            "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
+            "Hay una persona especializada que puede acompañarte "
+            "de una manera más profunda. Te comparto sus datos por si "
+            "en algún momento te sientes listo/a para dar ese paso:\n\n"
+            f"👤 *{psicologo['nombre']}*\n"
+            f"📧 {psicologo['correo']}\n"
+            f"📱 {psicologo['telefono']}\n\n"
+            "No tienes que hacer nada ahora. Yo sigo aquí contigo 🤗",
+            parse_mode="Markdown"
+        )
+
+        enviar_whatsapp_emergencia(
+            f"🚨 Riesgo ALTO\n"
+            f"Nombre: {nombre}\nMatrícula: {matricula}\n"
+            f"Correo: {correo}\nTel: {texto}\nMotivo: {razon}"
+        )
+        try:
+            enviar_correo_alerta(
+                psicologo["correo"],
+                obtener_datos_usuario(user_id),
+                f"El alumno solicitó apoyo voluntariamente. Motivo: {razon}"
+            )
+        except Exception as e:
+            logger.error(f"Error enviando correo al psicólogo: {e}")
+
+        # ── Limpiar estado y volver a conversación normal ──
+        context.user_data.clear()
+        return
+
+    # ── Conversación normal con la IA ──────────────────────────────────────────
+    data = await obtener_respuesta_ia(user_id, texto)
     await update.message.reply_text(data["respuesta"])
 
     if data.get("enviar_directorio"):
@@ -127,15 +202,12 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["alerta_pendiente"] = data.get("razon", "")
         await preguntar_apoyo(update, context)
 
-    return ConversationHandler.END
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FLUJO DE CONSENTIMIENTO (botones inline)
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def preguntar_apoyo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Paso 1 — ¿Quiere apoyo especializado?"""
     keyboard = [[
         InlineKeyboardButton("✅ Sí, me gustaría", callback_data="apoyo_si"),
         InlineKeyboardButton("❌ No por ahora",    callback_data="apoyo_no"),
@@ -152,11 +224,9 @@ async def preguntar_apoyo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Maneja todas las respuestas de los botones."""
     query = update.callback_query
     await query.answer()
 
-    # ── Paso 1: ¿Quiere apoyo? ──
     if query.data == "apoyo_si":
         keyboard = [[
             InlineKeyboardButton("✅ Sí, comparte mis datos", callback_data="datos_si"),
@@ -176,14 +246,12 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
             "Está bien, respeto completamente tu decisión 💙\n\n"
             f"{NUMEROS_CRISIS}\n\n"
             "Y cuando te sientas listo/a, también puedes acercarte "
-            "a cualquiera de los psicólogos de la UNACAR:\n\n"
-            f"{texto_todos_psicologos()}\n"
-            "No tienes que hacer nada ahora. "
-            "Yo sigo aquí contigo, sin prisa 🤗",
+            "a cualquiera de los psicólogos de la UNACAR:",
             parse_mode="Markdown"
         )
+        await _enviar_directorio_pdf_desde_callback(query)
+        context.user_data.clear()
 
-    # ── Paso 2: ¿Quiere compartir datos? ──
     elif query.data == "datos_si":
         await query.edit_message_text(
             "Gracias por confiar en mí 💙\n\n"
@@ -191,146 +259,52 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
             "¿me podrías decir tu *nombre completo*?",
             parse_mode="Markdown"
         )
-        context.user_data["esperando_registro"] = NOMBRE
+        context.user_data["estado"] = ESTADO_NOMBRE
 
     elif query.data == "datos_no":
         await query.edit_message_text(
             "Está bien, no tienes que compartir nada que no quieras 💙\n\n"
             f"{NUMEROS_CRISIS}\n\n"
             "Y cuando te sientas listo/a, también puedes acercarte "
-            "a cualquiera de los psicólogos de la UNACAR:\n\n"
-            f"{texto_todos_psicologos()}\n"
-            "Yo sigo aquí para escucharte, sin prisa 🤗",
+            "a cualquiera de los psicólogos de la UNACAR:",
             parse_mode="Markdown"
         )
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# FLUJO DE REGISTRO
-# ══════════════════════════════════════════════════════════════════════════════
-
-async def recibir_nombre(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    nombre = update.message.text.strip()
-
-    if contiene_insulto(nombre) or len(nombre) < 5 or not re.search(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ]', nombre):
-        await update.message.reply_text(
-            "⚠️ Por favor ingresa un nombre válido. ¿Cuál es tu nombre completo?"
-        )
-        return NOMBRE
-
-    context.user_data["nombre_completo"] = nombre
-    await update.message.reply_text(
-        f"Gracias, *{nombre}* ✅\n\nAhora dime tu *matrícula* (6 dígitos numéricos):",
-        parse_mode="Markdown"
-    )
-    return MATRICULA
-
-
-async def recibir_matricula(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    matricula = update.message.text.strip()
-
-    if not re.fullmatch(r'\d{6}', matricula) or contiene_insulto(matricula):
-        await update.message.reply_text(
-            "⚠️ La matrícula debe ser exactamente *6 dígitos numéricos* (ej. 213456):",
-            parse_mode="Markdown"
-        )
-        return MATRICULA
-
-    context.user_data["matricula"] = matricula
-    correo_esperado = f"{matricula}@mail.unacar.mx"
-    await update.message.reply_text(
-        f"Matrícula *{matricula}* ✅\n\n"
-        f"Ahora tu *correo institucional* (formato: `{correo_esperado}`):",
-        parse_mode="Markdown"
-    )
-    return CORREO
-
-
-async def recibir_correo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    correo = update.message.text.strip().lower()
-    matricula = context.user_data.get("matricula", "")
-    correo_esperado = f"{matricula}@mail.unacar.mx"
-
-    if correo != correo_esperado or contiene_insulto(correo):
-        await update.message.reply_text(
-            f"⚠️ Debe ser exactamente: `{correo_esperado}`\nInténtalo de nuevo:",
-            parse_mode="Markdown"
-        )
-        return CORREO
-
-    context.user_data["correo"] = correo
-    await update.message.reply_text(
-        "Correo verificado ✅\n\nPor último, tu *número de teléfono* (10 dígitos):",
-        parse_mode="Markdown"
-    )
-    return TELEFONO
-
-
-async def recibir_telefono(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    telefono = update.message.text.strip()
-
-    if not re.fullmatch(r'\d{10}', telefono) or contiene_insulto(telefono):
-        await update.message.reply_text(
-            "⚠️ El número debe tener exactamente *10 dígitos* (ej. 9381234567):",
-            parse_mode="Markdown"
-        )
-        return TELEFONO
-
-    user_id   = update.effective_user.id
-    nombre    = context.user_data["nombre_completo"]
-    matricula = context.user_data["matricula"]
-    correo    = context.user_data["correo"]
-    razon     = context.user_data.get("alerta_pendiente", "")
-
-    completar_registro(user_id, nombre, matricula, correo, telefono)
-
-    # Psicólogo asignado (por ahora el primero, después por facultad desde el panel)
-    psicologo = PSICOLOGOS[0]
-
-    await update.message.reply_text(
-        "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
-        "Hay una persona especializada que puede acompañarte "
-        "de una manera más profunda. Te comparto sus datos por si "
-        "en algún momento te sientes listo/a para dar ese paso:\n\n"
-        f"👤 *{psicologo['nombre']}*\n"
-        f"📧 {psicologo['correo']}\n"
-        f"📱 {psicologo['telefono']}\n\n"
-        "No tienes que hacer nada ahora. Yo sigo aquí contigo 🤗",
-        parse_mode="Markdown"
-    )
-
-    # Notificar al psicólogo
-    usuario_info = obtener_datos_usuario(user_id)
-    enviar_whatsapp_emergencia(
-        f"🚨 Riesgo ALTO\n"
-        f"Nombre: {nombre}\n"
-        f"Matrícula: {matricula}\n"
-        f"Correo: {correo}\n"
-        f"Tel: {telefono}\n"
-        f"Motivo: {razon}"
-    )
-    try:
-        enviar_correo_alerta(
-            psicologo["correo"],
-            usuario_info,
-            f"El alumno solicitó apoyo voluntariamente. Motivo: {razon}"
-        )
-    except Exception as e:
-        logger.error(f"Error enviando correo al psicólogo: {e}")
-
-    context.user_data.clear()
-    return ConversationHandler.END
-
-
-async def cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    await update.message.reply_text("Entendido. Aquí estoy si necesitas hablar. 💙")
-    return ConversationHandler.END
+        await _enviar_directorio_pdf_desde_callback(query)
+        context.user_data.clear()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PDF
 # ══════════════════════════════════════════════════════════════════════════════
+
+async def _enviar_directorio_pdf_desde_callback(query):
+    """Envía el PDF desde un callback (botón inline)."""
+    import os
+    from config import PDF_DIRECTORIO
+    if not os.path.exists(PDF_DIRECTORIO):
+        await query.message.reply_text(
+            "📎 No encontré el PDF en el servidor. "
+            "Puedes pedirlo en la USP (puerta 204, Campus Principal)."
+        )
+        return
+    try:
+        with open(PDF_DIRECTORIO, "rb") as pdf_file:
+            await query.message.reply_document(
+                document=pdf_file,
+                filename="Directorio_Psicopedagogico_UNACAR_2026.pdf",
+                caption=(
+                    "📋 *Directorio Oficial USP — UNACAR 2026*\n\n"
+                    "Datos de contacto, horarios y facultades de cada psicólogo/a. "
+                    "Recuerda enviar tu horario de clases al escribirles. 💙"
+                ),
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        logger.error(f"Error enviando PDF desde callback: {e}")
+        await query.message.reply_text(
+            "Tuve un problema enviando el PDF. Puedes pedirlo en la USP (puerta 204)."
+        )
+
 
 async def _enviar_directorio_pdf(update: Update):
     if not os.path.exists(PDF_DIRECTORIO):
@@ -364,13 +338,12 @@ async def _enviar_directorio_pdf(update: Update):
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def manejar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    archivo = await update.message.voice.get_file()
+    user_id    = update.effective_user.id
+    archivo    = await update.message.voice.get_file()
     ruta_audio = os.path.join(TMP_DIR, f"{user_id}_{archivo.file_id}.ogg")
     await archivo.download_to_drive(ruta_audio)
 
     try:
-        # Groq es síncrono, lo corremos en un hilo para no bloquear el bot
         def transcribir():
             with open(ruta_audio, "rb") as file:
                 return groq_client.audio.transcriptions.create(
@@ -411,27 +384,15 @@ def main():
         .build()
     )
 
-    # ConversationHandler para registro (activado por consentimiento)
-    registro_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje)],
-        states={
-            NOMBRE:    [MessageHandler(filters.TEXT & ~filters.COMMAND, recibir_nombre)],
-            MATRICULA: [MessageHandler(filters.TEXT & ~filters.COMMAND, recibir_matricula)],
-            CORREO:    [MessageHandler(filters.TEXT & ~filters.COMMAND, recibir_correo)],
-            TELEFONO:  [MessageHandler(filters.TEXT & ~filters.COMMAND, recibir_telefono)],
-        },
-        fallbacks=[CommandHandler("cancelar", cancelar)],
-    )
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("menu", menu))
+    app.add_handler(CommandHandler("start",      start))
+    app.add_handler(CommandHandler("menu",       menu))
     app.add_handler(CommandHandler("directorio", directorio))
     app.add_handler(CallbackQueryHandler(manejar_consentimiento))
-    app.add_handler(registro_handler)
-    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, manejar_audio))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
+    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO,   manejar_audio))
 
     WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
-    PORT = int(os.getenv("PORT", "8080"))
+    PORT        = int(os.getenv("PORT", "8080"))
 
     if WEBHOOK_URL:
         webhook_url = f"{WEBHOOK_URL}/{TOKEN_TELEGRAM}"
