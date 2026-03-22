@@ -82,17 +82,17 @@
                     </td>
 
                     <td>
-                        <span class="badge bg-secondary text-light">{{u[2]}}</span>
+                        <span class="badge bg-secondary text-light">{{u[3]}}</span>
                     </td>
 
                     <td class="text-center">
-                        <span class="badge rounded-pill bg-info-subtle text-info p-2">{{u[3]}}</span>
+                        <span class="badge rounded-pill bg-info-subtle text-info p-2">{{u[4]}}</span>
                     </td>
 
-                    <td class="text-muted small">{{u[4]}}</td>
+                    <td class="text-muted small">{{u[5]}}</td>
 
                     <td class="text-center">
-                        <a href="/usuario/{{u[0]}}" class="btn btn-primary btn-sm shadow-sm">
+                        <a href="{{ url_for('perfil_usuario', id=u[0]) }}" class="btn btn-primary btn-sm shadow-sm">
                             <i class="fas fa-eye me-1"></i> Ver Perfil
                         </a>
                     </td>

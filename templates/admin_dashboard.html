@@ -7,20 +7,20 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
 </head>
 <body>
-
+ 
 <div class="container mt-4">
     <div class="main-header p-3 mb-4 d-flex justify-content-between align-items-center">
     <h4 class="text-primary m-0">
-        Administrador: {{ admin }}
+        Administrador: {{ user }}
     </h4>
-
+ 
     <a href="{{ url_for('logout') }}"
        class="btn btn-outline-danger btn-sm">
         Cerrar sesión
     </a>
 </div>
-
-
+ 
+ 
     <table class="table data-table">
         <thead>
             <tr>
@@ -33,17 +33,17 @@
         <tbody>
             {% for p in psicologos %}
             <tr>
-                <td>{{ p[1] }}</td>
-                <td>{{ p[2] }}</td>
+                <td>{{ p.nombre }}</td>
+                <td>{{ p.usuario }}</td>
                 <td>
-                    {% if p[3] == 1 %}
+                    {% if p.activo %}
                         <span class="badge bg-success">Activo</span>
                     {% else %}
                         <span class="badge bg-danger">Inactivo</span>
                     {% endif %}
                 </td>
                 <td>
-                    <a href="{{ url_for('toggle_psicologo', id=p[0]) }}"
+                    <a href="{{ url_for('toggle_activo', id=p.id) }}"
                        class="btn btn-warning btn-sm">
                         Cambiar estado
                     </a>
@@ -53,6 +53,6 @@
         </tbody>
     </table>
 </div>
-
+ 
 </body>
 </html>
