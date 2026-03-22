@@ -1,124 +1,128 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serenity | UNACAR FCI</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serenity | Usuarios</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/serenity.jpg') }}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/serenity.css') }}">
+</head><style>
+  body { background: #f0f2f5; font-family: Arial, sans-serif; }
 
-    <link rel="icon" href="{{ url_for('static', filename='img/serenity.jpg') }}">
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/usuarios.css') }}">
-</head>
-
+  .main-header {
+    background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo-area { display: flex; align-items: center; gap: 10px; }
+  .logo-circle {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px;
+  }
+  .metric-card {
+    background: white; border-radius: 12px; padding: 24px; text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06); transition: transform 0.2s;
+  }
+  .metric-card:hover { transform: translateY(-4px); }
+  .metric-num { font-size: 42px; font-weight: 700; }
+  .data-table thead th { font-weight: 600; }
+  .table-hover tbody tr:hover { background: #f8f9ff; cursor: pointer; }
+  .chat-user {
+    background: #007bff; color: white; border-radius: 18px 18px 4px 18px;
+    padding: 10px 16px; max-width: 70%; margin-left: auto; margin-bottom: 8px; font-size: 14px;
+  }
+  .chat-bot {
+    background: #f1f3f4; color: #333; border-radius: 18px 18px 18px 4px;
+    padding: 10px 16px; max-width: 70%; margin-bottom: 8px; font-size: 14px;
+  }
+  .chat-time { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+  .login-bg {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .login-card {
+    background: white; border-radius: 20px; padding: 40px;
+    width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .alert-row {
+    border-left: 4px solid #dc3545; padding: 12px 16px; background: #fff;
+    border-radius: 0 8px 8px 0; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  }
+  .alert-row.medio { border-left-color: #fd7e14; }
+  .data-card {
+    background: #fff; border-left: 4px solid #007bff;
+    padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 10px; font-size: 14px;
+  }
+</style>
 <body>
+  <div class="main-header">
+    <div class="logo-area">
+      <img src="{{ url_for('static', filename='img/serenity.jpg') }}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+      <span class="fw-bold text-primary fs-5">Serenity</span>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="text-muted small"><i class="fas fa-user-circle me-1"></i>{{ user }}</span>
+      <a href="{{ url_for('cambiar_password') }}" class="btn btn-sm btn-outline-primary">
+        <i class="fas fa-key me-1"></i> Contraseña
+      </a>
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-danger">
+        <i class="fas fa-sign-out-alt me-1"></i> Salir
+      </a>
+    </div>
+  </div>
+<div class="container py-4">
+  <h4 class="fw-bold text-primary mb-4">
+    <i class="fas fa-user-friends me-2"></i> Usuarios de Serenity
+  </h4>
 
-<header class="main-header border-bottom">
-    <div class="container-fluid d-flex justify-content-between align-items-center p-3">
-
-        <div class="d-flex align-items-center">
-            <button class="btn btn-outline-dark me-3">
-                <i class="fas fa-bars"></i>
-            </button>
-
-            <a href="{{ url_for('dashboard') }}">
-                <img src="{{ url_for('static', filename='img/serenity.jpg') }}" class="img-fluid" style="max-height:40px;">
+  <div class="table-responsive">
+    <table class="table table-hover table-bordered align-middle data-table">
+      <thead class="table-primary">
+        <tr>
+          <th><i class="fas fa-hashtag me-1"></i>ID</th>
+          <th><i class="fas fa-at me-1"></i>Username</th>
+          <th><i class="fas fa-user me-1"></i>Nombre</th>
+          <th><i class="fas fa-university me-1"></i>Facultad</th>
+          <th class="text-center"><i class="fas fa-comments me-1"></i>Mensajes</th>
+          <th><i class="fas fa-clock me-1"></i>Última actividad</th>
+          <th class="text-center"><i class="fas fa-cog me-1"></i>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in datos %}
+        <tr>
+          <td><small class="text-muted">{{u[0]}}</small></td>
+          <td>{{u[1] or "—"}}</td>
+          <td class="fw-semibold">{{u[2] or "—"}}</td>
+          <td><span class="badge bg-secondary">{{u[3] or "Sin asignar"}}</span></td>
+          <td class="text-center"><span class="badge bg-info text-dark">{{u[4]}}</span></td>
+          <td><small class="text-muted">{{u[5]}}</small></td>
+          <td class="text-center">
+            <a href="{{ url_for('perfil_usuario', id=u[0]) }}" class="btn btn-primary btn-sm">
+              <i class="fas fa-eye me-1"></i> Ver Perfil
             </a>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not datos %}
+        <tr>
+          <td colspan="7" class="text-center text-muted p-4">
+            <i class="fas fa-users fa-2x mb-2 d-block"></i>
+            No hay alumnos registrados.
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
 
-            <h1 class="h4 mb-0 fw-bold text-primary ms-2">Serenity</h1>
-        </div>
-
-        <div class="d-flex align-items-center">
-            <img src="{{ url_for('static', filename='img/escudo_unacar.png') }}" class="img-fluid logo-small me-3">
-            <img src="{{ url_for('static', filename='img/Globo.jpg') }}" class="img-fluid logo-small">
-        </div>
-
-    </div>
-</header>
-
-
-<main class="container-fluid py-4">
-
-    <h2 class="mb-4 fw-bold text-primary">
-        <i class="fas fa-user-friends me-2"></i> Usuarios de Serenity
-    </h2>
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-
-        <form method="GET" class="d-flex" style="max-width: 400px;">
-            <input name="buscar" class="form-control me-2" placeholder="Buscar por ID o nombre..." value="{{buscar | default('')}}">
-            <button class="btn btn-primary">
-                <i class="fas fa-search"></i>
-            </button>
-        </form>
-
-        <button class="btn btn-outline-success">
-            <i class="fas fa-file-excel me-2"></i> Exportar
-        </button>
-
-    </div>
-
-    <div class="table-responsive">
-        <table class="table table-hover table-bordered align-middle data-table">
-            <thead class="table-primary">
-                <tr>
-                    <th>ID</th>
-                    <th>Usuario</th>
-                    <th>Facultad</th>
-                    <th class="text-center">Mensajes</th>
-                    <th>Última Interacción</th>
-                    <th class="text-center">Acciones</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {% for u in datos %}
-                <tr>
-                    <td class="fw-bold">{{u[0]}}</td>
-
-                    <td>
-                        <i class="fas fa-user-circle me-2 text-primary"></i> {{u[1]}}
-                    </td>
-
-                    <td>
-                        <span class="badge bg-secondary text-light">{{u[3]}}</span>
-                    </td>
-
-                    <td class="text-center">
-                        <span class="badge rounded-pill bg-info-subtle text-info p-2">{{u[4]}}</span>
-                    </td>
-
-                    <td class="text-muted small">{{u[5]}}</td>
-
-                    <td class="text-center">
-                        <a href="{{ url_for('perfil_usuario', id=u[0]) }}" class="btn btn-primary btn-sm shadow-sm">
-                            <i class="fas fa-eye me-1"></i> Ver Perfil
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-
-                {% if not datos %}
-                <tr>
-                    <td colspan="6" class="text-center text-muted p-4">
-                        <i class="fas fa-info-circle me-2"></i> No se encontraron usuarios.
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-
-        </table>
-    </div>
-
-    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary shadow-sm mt-4">
-        <i class="fas fa-arrow-left me-2"></i> Volver
-    </a>
-
-</main>
-
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">
+    <i class="fas fa-arrow-left me-2"></i> Volver
+  </a>
+</div>
 </body>
 </html>

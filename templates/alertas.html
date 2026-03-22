@@ -1,132 +1,158 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serenity | UNACAR FCI</title>
- 
-    <link rel="icon" href="{{ url_for('static', filename='img/serenity.jpg') }}" type="image/x-icon">
- 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/alertas.css') }}">
-</head>
- 
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serenity | Alertas</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/serenity.jpg') }}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/serenity.css') }}">
+</head><style>
+  body { background: #f0f2f5; font-family: Arial, sans-serif; }
+
+  .main-header {
+    background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo-area { display: flex; align-items: center; gap: 10px; }
+  .logo-circle {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px;
+  }
+  .metric-card {
+    background: white; border-radius: 12px; padding: 24px; text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06); transition: transform 0.2s;
+  }
+  .metric-card:hover { transform: translateY(-4px); }
+  .metric-num { font-size: 42px; font-weight: 700; }
+  .data-table thead th { font-weight: 600; }
+  .table-hover tbody tr:hover { background: #f8f9ff; cursor: pointer; }
+  .chat-user {
+    background: #007bff; color: white; border-radius: 18px 18px 4px 18px;
+    padding: 10px 16px; max-width: 70%; margin-left: auto; margin-bottom: 8px; font-size: 14px;
+  }
+  .chat-bot {
+    background: #f1f3f4; color: #333; border-radius: 18px 18px 18px 4px;
+    padding: 10px 16px; max-width: 70%; margin-bottom: 8px; font-size: 14px;
+  }
+  .chat-time { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+  .login-bg {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .login-card {
+    background: white; border-radius: 20px; padding: 40px;
+    width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .alert-row {
+    border-left: 4px solid #dc3545; padding: 12px 16px; background: #fff;
+    border-radius: 0 8px 8px 0; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  }
+  .alert-row.medio { border-left-color: #fd7e14; }
+  .data-card {
+    background: #fff; border-left: 4px solid #007bff;
+    padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 10px; font-size: 14px;
+  }
+</style>
 <body>
- 
-<header class="main-header border-bottom">
-    <div class="container-fluid d-flex justify-content-between align-items-center p-3">
- 
-        <div class="d-flex align-items-center">
-            <button class="btn btn-outline-dark me-3">
-                <i class="fas fa-bars"></i>
-            </button>
- 
-            <a class="logoweb" href="{{ url_for('dashboard') }}">
-                <img src="{{ url_for('static', filename='img/serenity.jpg') }}" alt="Logo Serenity" class="img-fluid" style="max-height: 40px;">
-            </a>
- 
-            <h1 class="h4 mb-0 fw-bold text-primary ms-2">Serenity</h1>
-        </div>
- 
-        <div class="d-flex align-items-center">
-            <img src="{{ url_for('static', filename='img/escudo_unacar.png') }}" class="img-fluid logo-small me-3">
-            <img src="{{ url_for('static', filename='img/Globo.jpg') }}" class="img-fluid logo-small">
-        </div>
+  <div class="main-header">
+    <div class="logo-area">
+      <img src="{{ url_for('static', filename='img/serenity.jpg') }}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+      <span class="fw-bold text-primary fs-5">Serenity</span>
     </div>
-</header>
- 
-<main class="container-fluid py-4">
- 
-    <h2 class="mb-4 fw-bold text-danger">
-        <i class="fas fa-exclamation-triangle me-2"></i> 🚨 Alertas Detectadas
-    </h2>
- 
-    <div class="card filter-card shadow-sm mb-4">
-        <div class="card-body">
- 
-            <form method="GET" class="row g-3 align-items-end">
- 
-                <div class="col-md-3">
-                    <label class="form-label text-muted small">Buscar</label>
-                    <input name="buscar" class="form-control" placeholder="Nombre, ID o descripción..." value="{{buscar}}">
-                </div>
- 
-                <div class="col-md-3">
-                    <label class="form-label text-muted small">Tipo de Alerta</label>
-                    <select name="tipo" class="form-select">
-                        <option value="">Todos los Tipos</option>
-                        <option value="suicidio" {% if tipo=="suicidio" %}selected{% endif %}>Suicidio</option>
-                        <option value="depresion" {% if tipo=="depresion" %}selected{% endif %}>Depresión</option>
-                        <option value="violencia" {% if tipo=="violencia" %}selected{% endif %}>Violencia</option>
-                        <option value="abuso" {% if tipo=="abuso" %}selected{% endif %}>Abuso sexual</option>
-                        <option value="drogadiccion" {% if tipo=="drogadiccion" %}selected{% endif %}>Drogadicción</option>
-                    </select>
-                </div>
- 
-                <div class="col-md-2">
-                    <label class="form-label text-muted small">Desde</label>
-                    <input type="date" class="form-control" name="inicio" value="{{inicio}}">
-                </div>
- 
-                <div class="col-md-2">
-                    <label class="form-label text-muted small">Hasta</label>
-                    <input type="date" class="form-control" name="fin" value="{{fin}}">
-                </div>
- 
-                <div class="col-md-2">
-                    <button class="btn btn-danger w-100 fw-bold">
-                        <i class="fas fa-search me-1"></i> Filtrar
-                    </button>
-                </div>
-            </form>
- 
-        </div>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="text-muted small"><i class="fas fa-user-circle me-1"></i>{{ user }}</span>
+      <a href="{{ url_for('cambiar_password') }}" class="btn btn-sm btn-outline-primary">
+        <i class="fas fa-key me-1"></i> Contraseña
+      </a>
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-danger">
+        <i class="fas fa-sign-out-alt me-1"></i> Salir
+      </a>
     </div>
- 
-    <div class="table-responsive">
-        <table class="table table-hover table-bordered align-middle data-table">
-            <thead class="table-danger">
-                <tr>
-                    <th>ID</th>
-                    <th>Usuario</th>
-                    <th>Tipo</th>
-                    <th>Descripción</th>
-                    <th>Nivel</th>
-                    <th>Fecha / Hora</th>
-                </tr>
-            </thead>
- 
-            <tbody>
-                {% for a in datos %}
-                <tr>
-                    <td class="fw-bold">{{a[0]}}</td>
-                    <td>{{a[1]}}</td>
-                    <td><span class="badge rounded-pill bg-danger-subtle text-danger p-2">{{a[2]}}</span></td>
-                    <td>{{a[3]}}</td>
-                    <td><span class="badge bg-warning text-dark">{{a[4]}}</span></td>
-                    <td class="text-muted small">{{a[5]}}</td>
-                </tr>
-                {% endfor %}
- 
-                {% if not datos %}
-                <tr>
-                    <td colspan="5" class="text-center text-muted p-4">
-                        <i class="fas fa-info-circle me-2"></i> No se encontraron alertas.
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
- 
-    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary shadow-sm mt-4">
-        <i class="fas fa-arrow-left me-2"></i> Volver al Panel
-    </a>
- 
-</main>
- 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
- 
+  </div>
+<div class="container py-4">
+  <h4 class="fw-bold text-danger mb-4">
+    <i class="fas fa-exclamation-triangle me-2"></i> Alertas Detectadas
+  </h4>
+
+  <div class="card shadow-sm mb-4 p-3">
+    <form method="GET" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small fw-bold"><i class="fas fa-search me-1"></i>Buscar</label>
+        <input name="buscar" class="form-control" placeholder="Nombre, ID..." value="{{buscar}}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-bold"><i class="fas fa-filter me-1"></i>Tipo de alerta</label>
+        <select name="tipo" class="form-select">
+          <option value="">Todos los tipos</option>
+          <option value="suicidio" {% if tipo=="suicidio" %}selected{% endif %}>Suicidio</option>
+          <option value="depresion" {% if tipo=="depresion" %}selected{% endif %}>Depresión</option>
+          <option value="violencia" {% if tipo=="violencia" %}selected{% endif %}>Violencia</option>
+          <option value="abuso" {% if tipo=="abuso" %}selected{% endif %}>Abuso</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Desde</label>
+        <input type="date" class="form-control" name="inicio" value="{{inicio}}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Hasta</label>
+        <input type="date" class="form-control" name="fin" value="{{fin}}">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-danger w-100">
+          <i class="fas fa-search me-1"></i> Filtrar
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-bordered align-middle data-table">
+      <thead class="table-danger">
+        <tr>
+          <th><i class="fas fa-hashtag me-1"></i>#</th>
+          <th><i class="fas fa-user me-1"></i>Alumno</th>
+          <th><i class="fas fa-tag me-1"></i>Tema</th>
+          <th><i class="fas fa-comment me-1"></i>Razón</th>
+          <th><i class="fas fa-thermometer-half me-1"></i>Nivel</th>
+          <th><i class="fas fa-clock me-1"></i>Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in datos %}
+        <tr>
+          <td class="fw-bold">{{a[0]}}</td>
+          <td>{{a[1]}}</td>
+          <td><span class="badge rounded-pill bg-danger-subtle text-danger p-2">{{a[2]}}</span></td>
+          <td><small class="text-muted">{{a[3]}}</small></td>
+          <td>
+            {% if a[4] == "alto" %}<span class="badge bg-danger">Alto</span>
+            {% elif a[4] == "medio" %}<span class="badge bg-warning text-dark">Medio</span>
+            {% else %}<span class="badge bg-success">Bajo</span>{% endif %}
+          </td>
+          <td class="text-muted small">{{a[5]}}</td>
+        </tr>
+        {% endfor %}
+        {% if not datos %}
+        <tr>
+          <td colspan="6" class="text-center text-muted p-4">
+            <i class="fas fa-check-circle fa-2x mb-2 text-success d-block"></i>
+            No se encontraron alertas.
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">
+    <i class="fas fa-arrow-left me-2"></i> Volver al Panel
+  </a>
+</div>
 </body>
 </html>
