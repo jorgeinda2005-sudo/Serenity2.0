@@ -202,8 +202,22 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _enviar_directorio_pdf(update)
 
     if data.get("nivel_riesgo") == "alto":
-        context.user_data["alerta_pendiente"] = data.get("razon", "")
-        await preguntar_apoyo(update, context)
+        # Si el usuario ya está registrado, no volver a pedir sus datos
+        ya_registrado = usuario_registrado(user_id)
+
+        # Cooldown: no repetir alerta si ya se mostró en los últimos 60 minutos
+        from datetime import datetime, timedelta
+        ultima = context.user_data.get("ultima_alerta")
+        cooldown_ok = (ultima is None or datetime.now() - ultima > timedelta(minutes=60))
+
+        if not ya_registrado and cooldown_ok:
+            context.user_data["alerta_pendiente"] = data.get("razon", "")
+            context.user_data["ultima_alerta"] = datetime.now()
+            await preguntar_apoyo(update, context)
+        elif ya_registrado and cooldown_ok:
+            # Ya tiene datos — solo mandar el directorio sin pedir nada
+            context.user_data["ultima_alerta"] = datetime.now()
+            await _enviar_directorio_pdf(update)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
