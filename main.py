@@ -166,42 +166,9 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        nombre    = context.user_data["nombre_completo"]
-        matricula = context.user_data["matricula"]
-        correo    = context.user_data["correo"]
-        razon     = context.user_data.get("alerta_pendiente", "")
-        psicologo = PSICOLOGOS[0]
-
-        completar_registro(user_id, nombre, matricula, correo, texto)
-
-        await update.message.reply_text(
-            "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
-            "Hay una persona especializada que puede acompañarte "
-            "de una manera más profunda. Te comparto sus datos por si "
-            "en algún momento te sientes listo/a para dar ese paso:\n\n"
-            f"👤 *{psicologo['nombre']}*\n"
-            f"📧 {psicologo['correo']}\n"
-            f"📱 {psicologo['telefono']}\n\n"
-            "No tienes que hacer nada ahora. Yo sigo aquí contigo 🤗",
-            parse_mode="Markdown"
-        )
-
-        enviar_whatsapp_emergencia(
-            f"🚨 Riesgo ALTO\n"
-            f"Nombre: {nombre}\nMatrícula: {matricula}\n"
-            f"Correo: {correo}\nTel: {texto}\nMotivo: {razon}"
-        )
-        try:
-            enviar_correo_alerta(
-                psicologo["correo"],
-                obtener_datos_usuario(user_id),
-                f"El alumno solicitó apoyo voluntariamente. Motivo: {razon}"
-            )
-        except Exception as e:
-            logger.error(f"Error enviando correo al psicólogo: {e}")
-
+        # Guardar teléfono y pasar a selección de facultad
         context.user_data["telefono"] = texto
-        context.user_data["estado"] = ESTADO_FACULTAD
+        context.user_data["estado"]   = ESTADO_FACULTAD
 
         keyboard = []
         for i in range(0, len(FACULTADES), 2):
