@@ -151,8 +151,21 @@
 
         <form method="POST" action="{{ url_for('agregar_facultad') }}" class="d-flex gap-2 mb-2">
           <input type="hidden" name="psicologo_id" value="{{ p.id }}">
-          <input type="text" name="facultad" class="form-control form-control-sm"
-                 placeholder="Nueva facultad..." required>
+          <select name="facultad" class="form-control form-control-sm" required>
+            <option value="">Seleccionar...</option>
+            <optgroup label="Campus Principal">
+              <option>Facultad de Ciencias de la Información</option>
+              <option>Facultad de Ciencias Económicas Administrativas</option>
+              <option>Facultad de Ciencias Educativas</option>
+              <option>Facultad de Derecho</option>
+              <option>Facultad de Química</option>
+            </optgroup>
+            <optgroup label="Campus III">
+              <option>Facultad de Ciencias de la Salud</option>
+              <option>Facultad de Ciencias Naturales</option>
+              <option>Facultad de Ingeniería</option>
+            </optgroup>
+          </select>
           <button type="submit" class="btn btn-sm btn-outline-primary">
             <i class="fas fa-plus"></i>
           </button>
