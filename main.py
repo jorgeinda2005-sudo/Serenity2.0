@@ -1,6 +1,7 @@
 import os
 import re
 import asyncio
+from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -10,7 +11,7 @@ from telegram.ext import (
 from config import TOKEN_TELEGRAM, TMP_DIR, PDF_DIRECTORIO, logger
 from database import (
     crear_base_datos, guardar_usuario, completar_registro,
-    usuario_registrado, obtener_datos_usuario
+    usuario_registrado, obtener_datos_usuario, limpiar_historial
 )
 from ai_core import obtener_respuesta_ia, groq_client
 from alertas import enviar_correo_alerta, enviar_whatsapp_emergencia
@@ -198,26 +199,25 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = await obtener_respuesta_ia(user_id, texto)
     await update.message.reply_text(data["respuesta"])
 
-    if data.get("enviar_directorio"):
-        await _enviar_directorio_pdf(update)
+    from datetime import datetime, timedelta
+    ultima = context.user_data.get("ultima_alerta")
+    cooldown_ok = (ultima is None or datetime.now() - ultima > timedelta(minutes=60))
 
-    if data.get("nivel_riesgo") == "alto":
-        # Si el usuario ya está registrado, no volver a pedir sus datos
+    if data.get("nivel_riesgo") == "alto" and cooldown_ok:
         ya_registrado = usuario_registrado(user_id)
+        context.user_data["ultima_alerta"] = datetime.now()
 
-        # Cooldown: no repetir alerta si ya se mostró en los últimos 60 minutos
-        from datetime import datetime, timedelta
-        ultima = context.user_data.get("ultima_alerta")
-        cooldown_ok = (ultima is None or datetime.now() - ultima > timedelta(minutes=60))
-
-        if not ya_registrado and cooldown_ok:
-            context.user_data["alerta_pendiente"] = data.get("razon", "")
-            context.user_data["ultima_alerta"] = datetime.now()
-            await preguntar_apoyo(update, context)
-        elif ya_registrado and cooldown_ok:
-            # Ya tiene datos — solo mandar el directorio sin pedir nada
-            context.user_data["ultima_alerta"] = datetime.now()
+        if ya_registrado:
+            # Ya registrado — solo PDF una vez
             await _enviar_directorio_pdf(update)
+        else:
+            # No registrado — flujo de consentimiento
+            context.user_data["alerta_pendiente"] = data.get("razon", "")
+            await preguntar_apoyo(update, context)
+
+    elif data.get("enviar_directorio") and data.get("nivel_riesgo") != "alto":
+        # Solo mandar directorio si NO es alerta alta (para evitar doble PDF)
+        await _enviar_directorio_pdf(update)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -305,6 +305,22 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
 # GUARDAR REGISTRO Y NOTIFICAR
 # ══════════════════════════════════════════════════════════════════════════════
 
+def limpiar_historial_usuario(user_id):
+    """Borra el historial de conversación del usuario en la BD para resetear el contexto de la IA."""
+    from database import get_conn, release_conn
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM conversaciones WHERE user_id=%s", (user_id,))
+        conn.commit()
+        logger.info(f"Historial limpiado para user_id {user_id}")
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error limpiando historial: {e}")
+    finally:
+        release_conn(conn)
+
+
 async def _guardar_y_notificar(update, context):
     """Guarda el registro completo y notifica al psicólogo. Llamado desde mensaje de texto."""
     user_id   = update.effective_user.id
@@ -316,6 +332,9 @@ async def _guardar_y_notificar(update, context):
     razon     = context.user_data.get("alerta_pendiente", "")
 
     completar_registro(user_id, nombre, matricula, correo, telefono)
+
+    # Limpiar historial para que la IA no siga viendo el contexto de riesgo
+    limpiar_historial(user_id)
 
     # Guardar facultad en la tabla usuarios
     from database import get_conn, release_conn
@@ -355,7 +374,10 @@ async def _guardar_y_notificar(update, context):
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")
 
+    # Limpiar historial en BD para que la IA no siga viendo el contexto de riesgo
+    limpiar_historial_usuario(user_id)
     context.user_data.clear()
+    context.user_data["ultima_alerta"] = datetime.now()
 
 
 async def _guardar_y_notificar_query(query, context):
@@ -407,14 +429,13 @@ async def _guardar_y_notificar_query(query, context):
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")
 
-    # Poner cooldown largo para evitar re-trigger de alerta
-    from datetime import datetime, timedelta
+    # Limpiar historial en BD para que la IA no siga viendo el contexto de riesgo
+    limpiar_historial_usuario(user_id)
     context.user_data.clear()
-    context.user_data["ultima_alerta"] = datetime.now()  # cooldown activo
+    context.user_data["ultima_alerta"] = datetime.now()
 
-    # Mensaje de cierre cálido para retomar conversación
     await query.message.reply_text(
-        "Sigo aquí si quieres hablar de cualquier otra cosa 💙",
+        "Sigo aquí si quieres hablar de cualquier otra cosa 💙"
     )
 
 
