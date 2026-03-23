@@ -393,7 +393,15 @@ async def _guardar_y_notificar_query(query, context):
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")
 
+    # Poner cooldown largo para evitar re-trigger de alerta
+    from datetime import datetime, timedelta
     context.user_data.clear()
+    context.user_data["ultima_alerta"] = datetime.now()  # cooldown activo
+
+    # Mensaje de cierre cálido para retomar conversación
+    await query.message.reply_text(
+        "Sigo aquí si quieres hablar de cualquier otra cosa 💙",
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
