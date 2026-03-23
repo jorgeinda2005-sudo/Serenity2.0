@@ -11,7 +11,7 @@ from telegram.ext import (
 from config import TOKEN_TELEGRAM, TMP_DIR, PDF_DIRECTORIO, logger
 from database import (
     crear_base_datos, guardar_usuario, completar_registro,
-    usuario_registrado, obtener_datos_usuario, limpiar_historial
+    usuario_registrado, obtener_datos_usuario
 )
 from ai_core import obtener_respuesta_ia, groq_client
 from alertas import enviar_correo_alerta, enviar_whatsapp_emergencia
@@ -334,7 +334,7 @@ async def _guardar_y_notificar(update, context):
     completar_registro(user_id, nombre, matricula, correo, telefono)
 
     # Limpiar historial para que la IA no siga viendo el contexto de riesgo
-    limpiar_historial(user_id)
+    limpiar_historial_usuario(user_id)
 
     # Guardar facultad en la tabla usuarios
     from database import get_conn, release_conn
