@@ -204,16 +204,11 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cooldown_ok = (ultima is None or datetime.now() - ultima > timedelta(minutes=60))
 
     if data.get("nivel_riesgo") == "alto" and cooldown_ok:
-        ya_registrado = usuario_registrado(user_id)
         context.user_data["ultima_alerta"] = datetime.now()
-
-        if ya_registrado:
-            # Ya registrado — solo PDF una vez
-            await _enviar_directorio_pdf(update)
-        else:
-            # No registrado — flujo de consentimiento
-            context.user_data["alerta_pendiente"] = data.get("razon", "")
-            await preguntar_apoyo(update, context)
+        context.user_data["alerta_pendiente"] = data.get("razon", "")
+        context.user_data["ya_registrado"] = usuario_registrado(user_id)
+        # Siempre mostrar botones de consentimiento
+        await preguntar_apoyo(update, context)
 
     elif data.get("enviar_directorio") and data.get("nivel_riesgo") != "alto":
         # Solo mandar directorio si NO es alerta alta (para evitar doble PDF)
@@ -270,13 +265,49 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
         context.user_data.clear()
 
     elif query.data == "datos_si":
-        await query.edit_message_text(
-            "Gracias por confiar en mí 💙\n\n"
-            "Para conectarte con el psicólogo adecuado, "
-            "¿me podrías decir tu *nombre completo*?",
-            parse_mode="Markdown"
-        )
-        context.user_data["estado"] = ESTADO_NOMBRE
+        ya_registrado = context.user_data.get("ya_registrado", False)
+
+        if ya_registrado:
+            # Ya tiene datos — notificar al psicólogo con los datos existentes
+            user_id = query.from_user.id
+            usuario_info = obtener_datos_usuario(user_id)
+            razon = context.user_data.get("alerta_pendiente", "")
+
+            await query.edit_message_text(
+                "💙 Gracias por confiar. Ya tenemos tus datos registrados.\n\n"
+                "Notificaremos a un psicólogo para que pueda contactarte pronto.\n\n"
+                "No tienes que hacer nada más. Yo sigo aquí contigo 🤗",
+                parse_mode="Markdown"
+            )
+            await _enviar_directorio_pdf_desde_callback(query)
+
+            enviar_whatsapp_emergencia(
+                f"🚨 Riesgo ALTO (usuario ya registrado)\n"
+                f"Nombre: {usuario_info.get('nombre_completo', '—')}\n"
+                f"Matrícula: {usuario_info.get('matricula', '—')}\n"
+                f"Correo: {usuario_info.get('correo', '—')}\n"
+                f"Tel: {usuario_info.get('telefono', '—')}\n"
+                f"Motivo: {razon}"
+            )
+            try:
+                enviar_correo_alerta(
+                    "mduarte@delfin.unacar.mx",
+                    usuario_info,
+                    f"El alumno solicitó apoyo nuevamente. Motivo: {razon}"
+                )
+            except Exception as e:
+                logger.error(f"Error enviando correo: {e}")
+
+            context.user_data.clear()
+        else:
+            # No registrado — pedir datos
+            await query.edit_message_text(
+                "Gracias por confiar en mí 💙\n\n"
+                "Para conectarte con el psicólogo adecuado, "
+                "¿me podrías decir tu *nombre completo*?",
+                parse_mode="Markdown"
+            )
+            context.user_data["estado"] = ESTADO_NOMBRE
 
     elif query.data == "datos_no":
         await query.edit_message_text(
