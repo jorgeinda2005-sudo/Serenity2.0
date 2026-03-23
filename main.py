@@ -508,10 +508,10 @@ def main():
     app = (
         Application.builder()
         .token(TOKEN_TELEGRAM)
-        .connect_timeout(30)
-        .read_timeout(30)
-        .write_timeout(30)
-        .pool_timeout(30)
+        .connect_timeout(60)
+        .read_timeout(60)
+        .write_timeout(60)
+        .pool_timeout(60)
         .build()
     )
 
@@ -533,6 +533,10 @@ def main():
             port=PORT,
             url_path=TOKEN_TELEGRAM,
             webhook_url=webhook_url,
+            read_timeout=60,
+            write_timeout=60,
+            connect_timeout=60,
+            pool_timeout=60,
         )
     else:
         logger.info("Serenity en línea con POLLING (modo local)...")
