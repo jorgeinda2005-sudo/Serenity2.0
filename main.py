@@ -1,7 +1,6 @@
 import os
 import re
 import asyncio
-from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -21,6 +20,19 @@ ESTADO_NOMBRE    = "nombre"
 ESTADO_MATRICULA = "matricula"
 ESTADO_CORREO    = "correo"
 ESTADO_TELEFONO  = "telefono"
+ESTADO_FACULTAD  = "facultad"
+
+# ── Facultades UNACAR ──────────────────────────────────────────────────────────
+FACULTADES = [
+    "Facultad de Ciencias de la Información",
+    "Facultad de Ciencias Económicas Administrativas",
+    "Facultad de Ciencias Educativas",
+    "Facultad de Derecho",
+    "Facultad de Química",
+    "Facultad de Ciencias de la Salud",
+    "Facultad de Ciencias Naturales",
+    "Facultad de Ingeniería",
+]
 
 # ── Líneas de crisis ───────────────────────────────────────────────────────────
 NUMEROS_CRISIS = (
@@ -158,18 +170,21 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         matricula = context.user_data["matricula"]
         correo    = context.user_data["correo"]
         razon     = context.user_data.get("alerta_pendiente", "")
+        psicologo = PSICOLOGOS[0]
 
         completar_registro(user_id, nombre, matricula, correo, texto)
 
         await update.message.reply_text(
             "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
-            "Hay personas especializadas que pueden acompañarte "
-            "de una manera más profunda. Te comparto el directorio "
-            "para que puedas contactar al psicólogo que más te convenga:\n\n"
+            "Hay una persona especializada que puede acompañarte "
+            "de una manera más profunda. Te comparto sus datos por si "
+            "en algún momento te sientes listo/a para dar ese paso:\n\n"
+            f"👤 *{psicologo['nombre']}*\n"
+            f"📧 {psicologo['correo']}\n"
+            f"📱 {psicologo['telefono']}\n\n"
             "No tienes que hacer nada ahora. Yo sigo aquí contigo 🤗",
             parse_mode="Markdown"
         )
-        await _enviar_directorio_pdf(update)
 
         enviar_whatsapp_emergencia(
             f"🚨 Riesgo ALTO\n"
@@ -177,38 +192,51 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Correo: {correo}\nTel: {texto}\nMotivo: {razon}"
         )
         try:
-            usuario_info = obtener_datos_usuario(user_id)
             enviar_correo_alerta(
-                "mduarte@delfin.unacar.mx",
-                usuario_info,
+                psicologo["correo"],
+                obtener_datos_usuario(user_id),
                 f"El alumno solicitó apoyo voluntariamente. Motivo: {razon}"
             )
         except Exception as e:
             logger.error(f"Error enviando correo al psicólogo: {e}")
 
-        # ── Limpiar estado y volver a conversación normal ──
-        context.user_data.clear()
+        context.user_data["telefono"] = texto
+        context.user_data["estado"] = ESTADO_FACULTAD
+
+        keyboard = []
+        for i in range(0, len(FACULTADES), 2):
+            row = [InlineKeyboardButton(FACULTADES[i], callback_data=f"fac_{i}")]
+            if i + 1 < len(FACULTADES):
+                row.append(InlineKeyboardButton(FACULTADES[i+1], callback_data=f"fac_{i+1}"))
+            keyboard.append(row)
+
+        await update.message.reply_text(
+            "Casi listo 😊 ¿A qué facultad perteneces?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+
+    if estado == ESTADO_FACULTAD:
+        facultad = texto.strip()
+        if facultad not in FACULTADES:
+            await update.message.reply_text(
+                "Por favor selecciona tu facultad usando los botones 😊"
+            )
+            return
+        context.user_data["facultad"] = facultad
+        await _guardar_y_notificar(update, context)
         return
 
     # ── Conversación normal con la IA ──────────────────────────────────────────
     data = await obtener_respuesta_ia(user_id, texto)
     await update.message.reply_text(data["respuesta"])
 
-    # Solo mandar PDF si no hay riesgo alto (en ese caso el PDF va después del consentimiento)
-    if data.get("enviar_directorio") and data.get("nivel_riesgo") != "alto":
+    if data.get("enviar_directorio"):
         await _enviar_directorio_pdf(update)
 
     if data.get("nivel_riesgo") == "alto":
-        # Cooldown: no repetir la alerta si ya se mostró en los últimos 30 minutos
-        ultima_alerta = context.user_data.get("ultima_alerta")
-        cooldown_ok = (
-            ultima_alerta is None or
-            datetime.now() - ultima_alerta > timedelta(minutes=30)
-        )
-        if cooldown_ok:
-            context.user_data["alerta_pendiente"] = data.get("razon", "")
-            context.user_data["ultima_alerta"] = datetime.now()
-            await preguntar_apoyo(update, context)
+        context.user_data["alerta_pendiente"] = data.get("razon", "")
+        await preguntar_apoyo(update, context)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -279,6 +307,126 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
         )
         await _enviar_directorio_pdf_desde_callback(query)
         context.user_data.clear()
+
+    elif query.data.startswith("fac_"):
+        # Selección de facultad con botón
+        idx = int(query.data.split("_")[1])
+        facultad = FACULTADES[idx]
+        context.user_data["facultad"] = facultad
+        await query.edit_message_text(
+            f"Facultad registrada: *{facultad}* ✅",
+            parse_mode="Markdown"
+        )
+        await _guardar_y_notificar_query(query, context)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GUARDAR REGISTRO Y NOTIFICAR
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def _guardar_y_notificar(update, context):
+    """Guarda el registro completo y notifica al psicólogo. Llamado desde mensaje de texto."""
+    user_id   = update.effective_user.id
+    nombre    = context.user_data.get("nombre_completo", "")
+    matricula = context.user_data.get("matricula", "")
+    correo    = context.user_data.get("correo", "")
+    telefono  = context.user_data.get("telefono", "")
+    facultad  = context.user_data.get("facultad", "")
+    razon     = context.user_data.get("alerta_pendiente", "")
+
+    completar_registro(user_id, nombre, matricula, correo, telefono)
+
+    # Guardar facultad en la tabla usuarios
+    from database import get_conn, release_conn
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE usuarios SET facultad=%s WHERE user_id=%s", (facultad, user_id))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error guardando facultad: {e}")
+    finally:
+        release_conn(conn)
+
+    await update.message.reply_text(
+        "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
+        "Hay personas especializadas que pueden acompañarte de una manera más profunda. "
+        "Te comparto el directorio para que puedas contactar al psicólogo adecuado:\n\n"
+        "No tienes que hacer nada ahora. Yo sigo aquí contigo 🤗",
+        parse_mode="Markdown"
+    )
+    await _enviar_directorio_pdf(update)
+
+    enviar_whatsapp_emergencia(
+        f"🚨 Riesgo ALTO\n"
+        f"Nombre: {nombre}\nMatrícula: {matricula}\n"
+        f"Correo: {correo}\nTel: {telefono}\n"
+        f"Facultad: {facultad}\nMotivo: {razon}"
+    )
+    try:
+        usuario_info = obtener_datos_usuario(user_id)
+        enviar_correo_alerta(
+            "mduarte@delfin.unacar.mx",
+            usuario_info,
+            f"El alumno solicitó apoyo voluntariamente. Facultad: {facultad}. Motivo: {razon}"
+        )
+    except Exception as e:
+        logger.error(f"Error enviando correo: {e}")
+
+    context.user_data.clear()
+
+
+async def _guardar_y_notificar_query(query, context):
+    """Igual que _guardar_y_notificar pero desde callback query (botón inline)."""
+    user_id   = query.from_user.id
+    nombre    = context.user_data.get("nombre_completo", "")
+    matricula = context.user_data.get("matricula", "")
+    correo    = context.user_data.get("correo", "")
+    telefono  = context.user_data.get("telefono", "")
+    facultad  = context.user_data.get("facultad", "")
+    razon     = context.user_data.get("alerta_pendiente", "")
+
+    completar_registro(user_id, nombre, matricula, correo, telefono)
+
+    from database import get_conn, release_conn
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE usuarios SET facultad=%s WHERE user_id=%s", (facultad, user_id))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error guardando facultad: {e}")
+    finally:
+        release_conn(conn)
+
+    await query.message.reply_text(
+        "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
+        "Hay personas especializadas que pueden acompañarte de una manera más profunda. "
+        "Te comparto el directorio para que puedas contactar al psicólogo adecuado:\n\n"
+        "No tienes que hacer nada ahora. Yo sigo aquí contigo 🤗",
+        parse_mode="Markdown"
+    )
+    await _enviar_directorio_pdf_desde_callback(query)
+
+    enviar_whatsapp_emergencia(
+        f"🚨 Riesgo ALTO\n"
+        f"Nombre: {nombre}\nMatrícula: {matricula}\n"
+        f"Correo: {correo}\nTel: {telefono}\n"
+        f"Facultad: {facultad}\nMotivo: {razon}"
+    )
+    try:
+        usuario_info = obtener_datos_usuario(user_id)
+        enviar_correo_alerta(
+            "mduarte@delfin.unacar.mx",
+            usuario_info,
+            f"El alumno solicitó apoyo. Facultad: {facultad}. Motivo: {razon}"
+        )
+    except Exception as e:
+        logger.error(f"Error enviando correo: {e}")
+
+    context.user_data.clear()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
