@@ -1,0 +1,176 @@
+/* ============================================================
+   serenity.css — Estilos base compartidos del panel web
+   Proyecto Serenity · UNACAR 2026
+   Ubicación: static/css/serenity.css
+   ============================================================ */
+
+/* ── Variables globales ─────────────────────────────────────── */
+:root {
+  --color-primary:   #007bff;
+  --color-danger:    #dc3545;
+  --color-success:   #28a745;
+  --color-info:      #17a2b8;
+  --color-warning:   #fd7e14;
+  --color-bg:        #f0f2f5;
+  --color-border:    #e9ecef;
+  --color-text-muted: #6c757d;
+  --shadow-sm:       0 2px 8px rgba(0,0,0,.06);
+  --shadow-md:       0 4px 12px rgba(0,0,0,.08);
+  --radius-sm:       8px;
+  --radius-md:       12px;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+body {
+  background-color: var(--color-bg);
+  font-family: Arial, sans-serif;
+}
+
+/* ── Header principal ───────────────────────────────────────── */
+.main-header {
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,.08);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+}
+
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-area img:hover {
+  transform: scale(1.1);
+  transition: transform 0.3s ease;
+}
+
+/* ── Tarjetas de métricas (dashboard) ───────────────────────── */
+.metric-card {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 24px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.metric-num {
+  font-size: 42px;
+  font-weight: 700;
+}
+
+/* ── Tablas de datos ────────────────────────────────────────── */
+.data-table {
+  background: #fff;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.data-table thead th {
+  font-weight: 600;
+}
+
+.data-table tbody tr:hover {
+  background: #f8f9ff;
+  cursor: pointer;
+}
+
+/* ── Alertas (filas con borde izquierdo) ────────────────────── */
+.alert-row {
+  border-left: 4px solid var(--color-danger);
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.alert-row.medio {
+  border-left-color: var(--color-warning);
+}
+
+/* ── Tarjetas de datos (perfil alumno) ──────────────────────── */
+.data-card {
+  background: #fff;
+  border-left: 4px solid var(--color-primary);
+  padding: 12px 16px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+/* ── Burbujas de chat ───────────────────────────────────────── */
+.chat-user {
+  background: var(--color-primary);
+  color: white;
+  border-radius: 18px 18px 4px 18px;
+  padding: 10px 16px;
+  max-width: 70%;
+  margin-left: auto;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.chat-bot {
+  background: #f1f3f4;
+  color: #333;
+  border-radius: 18px 18px 18px 4px;
+  padding: 10px 16px;
+  max-width: 70%;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.chat-time {
+  font-size: 11px;
+  color: #aaa;
+  margin-bottom: 4px;
+}
+
+/* ── Login ──────────────────────────────────────────────────── */
+.login-bg {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+}
+
+/* ── Badges y utilidades ────────────────────────────────────── */
+.badge.bg-danger-subtle {
+  background-color: #fce7e9 !important;
+  color: var(--color-danger) !important;
+  font-weight: 600;
+}
+
+.filter-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.form-label.small {
+  font-weight: bold;
+  font-size: 0.85rem;
+  color: #495057;
+}
