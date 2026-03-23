@@ -9,11 +9,7 @@ import psycopg2.pool
 import tempfile
 import os
 import re
-import secrets
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import timedelta, datetime
+from datetime import timedelta
 from functools import wraps
 from dotenv import load_dotenv
  
@@ -173,18 +169,10 @@ def cambiar_password():
                                    user=session["user"])
  
         hashed = generate_password_hash(nueva).decode("utf-8")
-
-        if session.get("primer_acceso"):
-            correo_propio = request.form.get("correo", "").strip().lower()
-            execute(
-                "UPDATE psicologos SET password_hash=%s, primer_acceso=FALSE, correo=%s WHERE id=%s",
-                (hashed, correo_propio, session["id"])
-            )
-        else:
-            execute(
-                "UPDATE psicologos SET password_hash=%s, primer_acceso=FALSE WHERE id=%s",
-                (hashed, session["id"])
-            )
+        execute(
+            "UPDATE psicologos SET password_hash=%s, primer_acceso=FALSE WHERE id=%s",
+            (hashed, session["id"])
+        )
         session.pop("primer_acceso", None)
  
         facultades = query(
@@ -258,7 +246,11 @@ def ver_alertas():
     fecha_fin    = request.args.get("fin", "")
  
     sql    = f"""
-        SELECT a.id, u.username, a.tema, a.razon, a.nivel_riesgo, a.timestamp
+        SELECT a.id,
+               a.user_id,
+               COALESCE(NULLIF(u.nombre_completo,''), u.username, CAST(u.user_id AS TEXT)) AS alumno,
+               a.tema, a.razon, a.nivel_riesgo,
+               TO_CHAR(a.timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS fecha
         FROM alertas a
         JOIN usuarios u ON u.user_id = a.user_id
         WHERE u.facultad IN ({placeholders})
@@ -569,130 +561,6 @@ def agregar_psicologo():
     return redirect("/admin")
  
  
-
-# ══════════════════════════════════════════════════════════════════════════════
-# RECUPERACIÓN DE CONTRASEÑA
-# ══════════════════════════════════════════════════════════════════════════════
-
-def enviar_correo_recuperacion(destinatario, nombre, token):
-    """Envía el correo con el link de recuperación."""
-    gmail_user = os.getenv("GMAIL_USER", "")
-    gmail_pass = os.getenv("GMAIL_PASS", "")
-    if not gmail_user or not gmail_pass:
-        print("Error: GMAIL_USER o GMAIL_PASS no configurados")
-        return False
-
-    base_url = os.getenv("WEBHOOK_URL", "http://localhost:5001")
-    link = f"{base_url}/reset/{token}"
-
-    msg = MIMEMultipart()
-    msg["From"]    = gmail_user
-    msg["To"]      = destinatario
-    msg["Subject"] = "Serenity — Recuperación de contraseña"
-
-    cuerpo = f"""
-    <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:auto">
-      <div style="background:#007bff;padding:20px;border-radius:12px 12px 0 0;text-align:center">
-        <h2 style="color:white;margin:0">Serenity · UNACAR</h2>
-      </div>
-      <div style="background:#fff;padding:30px;border:1px solid #e9ecef;border-radius:0 0 12px 12px">
-        <p>Hola <b>{nombre}</b>,</p>
-        <p>Recibimos una solicitud para restablecer tu contraseña.</p>
-        <p>Haz clic en el botón para continuar — el enlace expira en <b>1 hora</b>:</p>
-        <div style="text-align:center;margin:30px 0">
-          <a href="{link}" style="background:#007bff;color:white;padding:14px 28px;
-             border-radius:8px;text-decoration:none;font-weight:bold">
-            Restablecer contraseña
-          </a>
-        </div>
-        <p style="color:#999;font-size:12px">
-          Si no solicitaste esto, ignora este correo. Tu contraseña no cambiará.
-        </p>
-      </div>
-    </body></html>
-    """
-
-    msg.attach(MIMEText(cuerpo, "html"))
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(gmail_user, gmail_pass)
-        server.send_message(msg)
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"Error enviando correo de recuperación: {e}")
-        return False
-
-
-@app.route("/recuperar", methods=["GET", "POST"])
-def recuperar():
-    if request.method == "GET":
-        return render_template("recuperar.html")
-
-    usuario = request.form.get("usuario", "").strip()
-    row = query(
-        "SELECT id, nombre, correo FROM psicologos WHERE usuario=%s AND activo=TRUE",
-        (usuario,)
-    )
-    if not row or not row[0][2]:
-        return render_template("recuperar.html",
-            error="No encontramos ese usuario o no tiene correo registrado.")
-
-    user_id, nombre, correo = row[0]
-    token   = secrets.token_urlsafe(32)
-    expira  = datetime.now() + timedelta(hours=1)
-
-    execute(
-        "UPDATE psicologos SET reset_token=%s, reset_expira=%s WHERE id=%s",
-        (token, expira, user_id)
-    )
-
-    enviado = enviar_correo_recuperacion(correo, nombre, token)
-    if enviado:
-        return render_template("recuperar.html",
-            exito=f"Enviamos un enlace a {correo[:3]}***@{correo.split('@')[1]}")
-    else:
-        return render_template("recuperar.html",
-            error="Error al enviar el correo. Contacta al administrador.")
-
-
-@app.route("/reset/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    row = query(
-        "SELECT id, nombre, reset_expira FROM psicologos WHERE reset_token=%s",
-        (token,)
-    )
-    if not row:
-        return render_template("reset.html", error="Enlace inválido o ya fue usado.")
-
-    user_id, nombre, expira = row[0]
-
-    if datetime.now() > expira:
-        return render_template("reset.html", error="El enlace expiró. Solicita uno nuevo.")
-
-    if request.method == "GET":
-        return render_template("reset.html", token=token, nombre=nombre)
-
-    nueva     = request.form.get("nueva", "")
-    confirmar = request.form.get("confirmar", "")
-
-    if nueva != confirmar:
-        return render_template("reset.html", token=token, nombre=nombre,
-            error="Las contraseñas no coinciden.")
-
-    error_pwd = validar_password(nueva)
-    if error_pwd:
-        return render_template("reset.html", token=token, nombre=nombre,
-            error=error_pwd)
-
-    hashed = generate_password_hash(nueva).decode("utf-8")
-    execute(
-        "UPDATE psicologos SET password_hash=%s, reset_token=NULL, reset_expira=NULL, primer_acceso=FALSE WHERE id=%s",
-        (hashed, user_id)
-    )
-    return render_template("reset.html", exito=True)
-
 # ══════════════════════════════════════════════════════════════════════════════
 # LOGOUT
 # ══════════════════════════════════════════════════════════════════════════════

@@ -125,17 +125,18 @@
       </thead>
       <tbody>
         {% for a in datos %}
-        <tr>
+        <tr onclick="window.location='/usuario/{{a[1]}}'" style="cursor:pointer"
+            title="Ver perfil de {{a[2]}}">
           <td class="fw-bold">{{a[0]}}</td>
-          <td>{{a[1]}}</td>
-          <td><span class="badge rounded-pill bg-danger-subtle text-danger p-2">{{a[2]}}</span></td>
-          <td><small class="text-muted">{{a[3]}}</small></td>
+          <td class="fw-semibold">{{a[2]}}</td>
+          <td><span class="badge rounded-pill bg-danger-subtle text-danger p-2">{{a[3]}}</span></td>
+          <td><small class="text-muted">{{a[4]}}</small></td>
           <td>
-            {% if a[4] == "alto" %}<span class="badge bg-danger">Alto</span>
-            {% elif a[4] == "medio" %}<span class="badge bg-warning text-dark">Medio</span>
+            {% if a[5] == "alto" %}<span class="badge bg-danger">Alto</span>
+            {% elif a[5] == "medio" %}<span class="badge bg-warning text-dark">Medio</span>
             {% else %}<span class="badge bg-success">Bajo</span>{% endif %}
           </td>
-          <td class="text-muted small">{{a[5]}}</td>
+          <td class="text-muted small">{{a[6]}}</td>
         </tr>
         {% endfor %}
         {% if not datos %}

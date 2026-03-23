@@ -82,18 +82,24 @@
 
   <div class="row g-3 mb-4">
     <div class="col-md-4">
-      <div class="metric-card">
-        <i class="fas fa-users fa-2x text-success mb-3"></i>
-        <div class="metric-num text-success">{{ usuarios }}</div>
-        <p class="text-muted mb-0">Alumnos registrados</p>
-      </div>
+      <a href="{{ url_for('ver_usuarios') }}" class="text-decoration-none">
+        <div class="metric-card">
+          <i class="fas fa-users fa-2x text-success mb-3"></i>
+          <div class="metric-num text-success">{{ usuarios }}</div>
+          <p class="text-muted mb-0">Alumnos registrados</p>
+          <small class="text-primary mt-2 d-block"><i class="fas fa-arrow-right me-1"></i>Ver usuarios</small>
+        </div>
+      </a>
     </div>
     <div class="col-md-4">
-      <div class="metric-card">
-        <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
-        <div class="metric-num text-danger">{{ alertas }}</div>
-        <p class="text-muted mb-0">Alertas detectadas</p>
-      </div>
+      <a href="{{ url_for('ver_alertas') }}" class="text-decoration-none">
+        <div class="metric-card">
+          <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
+          <div class="metric-num text-danger">{{ alertas }}</div>
+          <p class="text-muted mb-0">Alertas detectadas</p>
+          <small class="text-danger mt-2 d-block"><i class="fas fa-arrow-right me-1"></i>Ver alertas</small>
+        </div>
+      </a>
     </div>
     <div class="col-md-4">
       <div class="metric-card">
@@ -102,15 +108,6 @@
         <p class="text-muted mb-0">Perfiles emocionales</p>
       </div>
     </div>
-  </div>
-
-  <div class="d-flex gap-3">
-    <a href="{{ url_for('ver_usuarios') }}" class="btn btn-primary btn-lg">
-      <i class="fas fa-users me-2"></i> Ver Usuarios
-    </a>
-    <a href="{{ url_for('ver_alertas') }}" class="btn btn-danger btn-lg">
-      <i class="fas fa-bell me-2"></i> Ver Alertas
-    </a>
   </div>
 </div>
 </body>
