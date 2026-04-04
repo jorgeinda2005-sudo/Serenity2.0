@@ -614,14 +614,23 @@ def recuperar():
     if request.method == "GET":
         return render_template("recuperar.html")
     usuario = request.form.get("usuario", "").strip()
+    correo  = request.form.get("correo", "").strip().lower()
     row = query(
-        "SELECT id, nombre, correo FROM psicologos WHERE usuario=%s AND activo=TRUE",
+        "SELECT id, nombre FROM psicologos WHERE usuario=%s AND activo=TRUE",
         (usuario,)
     )
-    if not row or not row[0][2]:
+    if not row:
         return render_template("recuperar.html",
-            error="No encontramos ese usuario o no tiene correo registrado.")
-    user_id, nombre, correo = row[0]
+            error="No encontramos ese usuario o está inactivo.")
+    user_id, nombre = row[0]
+    if not correo or "@" not in correo:
+        return render_template("recuperar.html",
+            error="Por favor ingresa un correo válido.")
+    # Guardar el correo si no lo tenía
+    execute(
+        "UPDATE psicologos SET correo=%s WHERE id=%s AND (correo IS NULL OR correo='')",
+        (correo, user_id)
+    )
     token  = secrets.token_urlsafe(32)
     expira = datetime.now() + timedelta(hours=1)
     execute(

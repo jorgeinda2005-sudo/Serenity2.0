@@ -38,12 +38,20 @@
     </div>
     {% else %}
     <form method="POST">
-      <div class="mb-4">
+      <div class="mb-3">
         <label class="form-label fw-semibold">
           <i class="fas fa-user me-1 text-primary"></i> Tu usuario
         </label>
         <input name="usuario" class="form-control form-control-lg"
                placeholder="Ej. cramos" required autofocus>
+      </div>
+      <div class="mb-4">
+        <label class="form-label fw-semibold">
+          <i class="fas fa-envelope me-1 text-primary"></i> Tu correo institucional
+        </label>
+        <input type="email" name="correo" class="form-control form-control-lg"
+               placeholder="correo@delfin.unacar.mx" required>
+        <div class="form-text">Te enviaremos el enlace de recuperación aquí.</div>
       </div>
       <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
         <i class="fas fa-paper-plane me-2"></i> Enviar enlace
