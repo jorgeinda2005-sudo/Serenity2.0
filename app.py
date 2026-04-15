@@ -145,7 +145,7 @@ def cambiar_password():
 
         if not session.get("primer_acceso"):
             row = query("SELECT password_hash FROM psicologos WHERE id=%s", (session["id"],))
-            if not row or not check_password_hash(row[0][0], actual):
+            if not row or not row[0] or not row[0][0] or not check_password_hash(row[0][0], actual):
                 return render_template("cambiar_password.html",
                                        error="❌ La contraseña actual es incorrecta",
                                        user=session["user"])
@@ -199,7 +199,7 @@ def dashboard():
         return redirect("/")
 
     facs         = session.get("facultades", [])
-    placeholders = ",".join(["%s"] * len(facs)) if facs else "''"
+    placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
 
     usuarios = query(f"""
         SELECT COUNT(DISTINCT u.user_id)
@@ -239,7 +239,7 @@ def ver_alertas():
         return redirect("/")
 
     facs         = session.get("facultades", [])
-    placeholders = ",".join(["%s"] * len(facs)) if facs else "''"
+    placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
 
     tipo         = request.args.get("tipo", "")
     buscar       = request.args.get("buscar", "")
@@ -293,7 +293,7 @@ def ver_usuarios():
         return redirect("/")
 
     facs         = session.get("facultades", [])
-    placeholders = ",".join(["%s"] * len(facs)) if facs else "''"
+    placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
 
     datos = query(f"""
         SELECT u.user_id, u.username, u.nombre_completo, u.facultad,
@@ -317,7 +317,7 @@ def perfil_usuario(id):
         return redirect("/")
 
     facs         = session.get("facultades", [])
-    placeholders = ",".join(["%s"] * len(facs)) if facs else "''"
+    placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
 
     valid = query(
         f"SELECT 1 FROM usuarios WHERE user_id=%s AND facultad IN ({placeholders}) LIMIT 1",
@@ -333,7 +333,7 @@ def perfil_usuario(id):
     datos_personales = datos_personales[0] if datos_personales else None
 
     usuario = query("SELECT username FROM usuarios WHERE user_id=%s", (id,))
-    if not usuario:
+    if not usuario or not usuario[0] or not usuario[0][0]:
         return "⚠ Usuario no encontrado"
     user_name = usuario[0][0]
 
@@ -387,7 +387,7 @@ def reporte_pdf(id):
         return redirect("/")
 
     facs         = session.get("facultades", [])
-    placeholders = ",".join(["%s"] * len(facs)) if facs else "''"
+    placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
 
     valid = query(
         f"SELECT 1 FROM usuarios WHERE user_id=%s AND facultad IN ({placeholders}) LIMIT 1",
@@ -397,7 +397,7 @@ def reporte_pdf(id):
         return "🚫 No puedes generar reportes de usuarios fuera de tu facultad."
 
     usuario = query("SELECT username FROM usuarios WHERE user_id=%s", (id,))
-    if not usuario:
+    if not usuario or not usuario[0] or not usuario[0][0]:
         return "⚠ Usuario no encontrado"
     user_name = usuario[0][0]
 
@@ -483,7 +483,13 @@ def reporte_pdf(id):
             y = margin_top
 
     c.save()
-    return send_file(temp.name, as_attachment=True, download_name=f"Reporte_{user_name}.pdf")
+    try:
+        return send_file(temp.name, as_attachment=True, download_name=f"Reporte_{user_name}.pdf")
+    finally:
+        try:
+            os.unlink(temp.name)
+        except:
+            pass
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -554,11 +560,16 @@ def agregar_psicologo():
     nombre  = request.form["nombre"].strip()
     usuario = request.form["usuario"].strip()
     codigo  = request.form["codigo"].strip()
-    execute(
-        "INSERT INTO psicologos (nombre, usuario, activo, rol, primer_acceso, codigo_temporal) "
-        "VALUES (%s, %s, TRUE, 'psicologo', TRUE, %s)",
-        (nombre, usuario, codigo)
-    )
+    try:
+        execute(
+            "INSERT INTO psicologos (nombre, usuario, activo, rol, primer_acceso, codigo_temporal) "
+            "VALUES (%s, %s, TRUE, 'psicologo', TRUE, %s)",
+            (nombre, usuario, codigo)
+        )
+    except psycopg2.IntegrityError:
+        return render_template("admin_dashboard.html",
+                               error="❌ El usuario ya existe",
+                               user=session["user"])
     return redirect("/admin")
 
 
@@ -639,8 +650,10 @@ def recuperar():
     )
     enviado = enviar_correo_recuperacion(correo, nombre, token)
     if enviado:
+        partes = correo.split("@")
+        dominio = partes[1] if len(partes) > 1 else "correo"
         return render_template("recuperar.html",
-            exito=f"Enviamos un enlace a {correo[:3]}***@{correo.split('@')[1]}")
+            exito=f"Enviamos un enlace a {correo[:3]}***@{dominio}")
     else:
         return render_template("recuperar.html",
             error="Error al enviar el correo. Contacta al administrador.")
@@ -652,10 +665,10 @@ def reset_password(token):
         "SELECT id, nombre, reset_expira FROM psicologos WHERE reset_token=%s",
         (token,)
     )
-    if not row:
+    if not row or not row[0]:
         return render_template("reset.html", error="Enlace inválido o ya fue usado.")
     user_id, nombre, expira = row[0]
-    if datetime.now() > expira:
+    if not expira or datetime.now() > expira:
         return render_template("reset.html", error="El enlace expiró. Solicita uno nuevo.")
     if request.method == "GET":
         return render_template("reset.html", token=token, nombre=nombre)
