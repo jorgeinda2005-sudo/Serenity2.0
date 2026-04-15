@@ -580,8 +580,15 @@ def agregar_psicologo():
 def enviar_correo_recuperacion(destinatario, nombre, token):
     gmail_user = os.getenv("GMAIL_USER", "")
     gmail_pass = os.getenv("GMAIL_PASS", "")
-    if not gmail_user or not gmail_pass:
+
+    # Debug: verificar credenciales
+    if not gmail_user:
+        print("ERROR: GMAIL_USER no está configurado en .env")
         return False
+    if not gmail_pass:
+        print("ERROR: GMAIL_PASS no está configurado en .env")
+        return False
+
     base_url = os.getenv("WEBHOOK_URL", "http://localhost:5001")
     link = f"{base_url}/reset/{token}"
     msg = MIMEMultipart()
@@ -609,14 +616,27 @@ def enviar_correo_recuperacion(destinatario, nombre, token):
     """
     msg.attach(MIMEText(cuerpo, "html"))
     try:
+        print(f"Intentando enviar correo a: {destinatario}")
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
+        print("Conexión SMTP establecida y TLS activado")
         server.login(gmail_user, gmail_pass)
+        print(f"Login exitoso con usuario: {gmail_user}")
         server.send_message(msg)
+        print("Correo enviado exitosamente")
         server.quit()
         return True
+    except smtplib.SMTPAuthenticationError:
+        print("ERROR: Autenticación fallida. Verifica usuario y contraseña de Gmail")
+        return False
+    except smtplib.SMTPConnectError as e:
+        print(f"ERROR: No se pudo conectar al servidor SMTP: {e}")
+        return False
+    except smtplib.SMTPException as e:
+        print(f"ERROR SMTP: {e}")
+        return False
     except Exception as e:
-        print(f"Error enviando correo: {e}")
+        print(f"Error enviando correo: {type(e).__name__} - {e}")
         return False
 
 
