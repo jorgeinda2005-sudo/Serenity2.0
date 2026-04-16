@@ -617,7 +617,7 @@ def enviar_correo_recuperacion(destinatario, nombre, token):
     msg.attach(MIMEText(cuerpo, "html"))
     try:
         print(f"Intentando enviar correo a: {destinatario}")
-        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server = smtplib.SMTP("smtp.gmail.com", 465)
         server.starttls()
         print("Conexión SMTP establecida y TLS activado")
         server.login(gmail_user, gmail_pass)
