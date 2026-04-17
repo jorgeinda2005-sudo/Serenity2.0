@@ -333,7 +333,8 @@ def perfil_usuario(id):
     """, (id,))
     datos_personales = datos_personales[0] if datos_personales else None
 
-    usuario = query("SELECT username FROM usuarios WHERE user_id=%s", (id,))
+    # Busca el nombre completo, si no hay, busca el username, si no, usa el ID
+    usuario = query("SELECT COALESCE(NULLIF(nombre_completo,''), username, CAST(user_id AS TEXT)) FROM usuarios WHERE user_id=%s", (id,))
     if not usuario or not usuario[0] or not usuario[0][0]:
         return "⚠ Usuario no encontrado"
     user_name = usuario[0][0]
@@ -397,7 +398,8 @@ def reporte_pdf(id):
     if not valid:
         return "🚫 No puedes generar reportes de usuarios fuera de tu facultad."
 
-    usuario = query("SELECT username FROM usuarios WHERE user_id=%s", (id,))
+    # Busca el nombre completo, si no hay, busca el username, si no, usa el ID
+    usuario = query("SELECT COALESCE(NULLIF(nombre_completo,''), username, CAST(user_id AS TEXT)) FROM usuarios WHERE user_id=%s", (id,))
     if not usuario or not usuario[0] or not usuario[0][0]:
         return "⚠ Usuario no encontrado"
     user_name = usuario[0][0]
