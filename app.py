@@ -16,6 +16,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import timedelta, datetime
 from functools import wraps
 from dotenv import load_dotenv
+import requests  # <-- Importación nueva para la API de Brevo
 
 load_dotenv()
 
@@ -578,23 +579,15 @@ def agregar_psicologo():
 # ══════════════════════════════════════════════════════════════════════════════
 
 def enviar_correo_recuperacion(destinatario, nombre, token):
-    gmail_user = os.getenv("GMAIL_USER", "")
-    gmail_pass = os.getenv("GMAIL_PASS", "")
+    api_key = os.getenv("BREVO_API_KEY", "")
 
-    # Debug: verificar credenciales
-    if not gmail_user:
-        print("ERROR: GMAIL_USER no está configurado en .env")
-        return False
-    if not gmail_pass:
-        print("ERROR: GMAIL_PASS no está configurado en .env")
+    if not api_key:
+        print("ERROR: BREVO_API_KEY no está configurado en .env")
         return False
 
     base_url = os.getenv("WEBHOOK_URL", "http://localhost:5001")
     link = f"{base_url}/reset/{token}"
-    msg = MIMEMultipart()
-    msg["From"]    = gmail_user
-    msg["To"]      = destinatario
-    msg["Subject"] = "Serenity — Recuperación de contraseña"
+    
     cuerpo = f"""
     <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:auto">
       <div style="background:#007bff;padding:20px;border-radius:12px 12px 0 0;text-align:center">
@@ -614,29 +607,40 @@ def enviar_correo_recuperacion(destinatario, nombre, token):
       </div>
     </body></html>
     """
-    msg.attach(MIMEText(cuerpo, "html"))
+
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+    
+    # Intenta usar GMAIL_USER si aún lo tienes, o pon directamente tu correo registrado en Brevo
+    sender_email = os.getenv("GMAIL_USER", "serenity@unacar.mx")
+
+    payload = {
+        "sender": {
+            "name": "Serenity UNACAR",
+            "email": sender_email
+        },
+        "to": [{"email": destinatario, "name": nombre}],
+        "subject": "Serenity — Recuperación de contraseña",
+        "htmlContent": cuerpo
+    }
+
     try:
-        print(f"Intentando enviar correo a: {destinatario}")
-        server = smtplib.SMTP("smtp.gmail.com", 465)
-        server.starttls()
-        print("Conexión SMTP establecida y TLS activado")
-        server.login(gmail_user, gmail_pass)
-        print(f"Login exitoso con usuario: {gmail_user}")
-        server.send_message(msg)
-        print("Correo enviado exitosamente")
-        server.quit()
-        return True
-    except smtplib.SMTPAuthenticationError:
-        print("ERROR: Autenticación fallida. Verifica usuario y contraseña de Gmail")
-        return False
-    except smtplib.SMTPConnectError as e:
-        print(f"ERROR: No se pudo conectar al servidor SMTP: {e}")
-        return False
-    except smtplib.SMTPException as e:
-        print(f"ERROR SMTP: {e}")
-        return False
+        print(f"Intentando enviar correo API a: {destinatario}")
+        response = requests.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 201:
+            print("Correo enviado exitosamente vía API de Brevo")
+            return True
+        else:
+            print(f"ERROR API Brevo: {response.status_code} - {response.text}")
+            return False
+            
     except Exception as e:
-        print(f"Error enviando correo: {type(e).__name__} - {e}")
+        print(f"Error en la petición web: {type(e).__name__} - {e}")
         return False
 
 
