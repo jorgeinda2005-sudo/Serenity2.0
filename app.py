@@ -10,13 +10,9 @@ import tempfile
 import os
 import re
 import secrets
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import timedelta, datetime
 from functools import wraps
 from dotenv import load_dotenv
-import requests  # <-- Importación nueva para la API de Brevo
 
 load_dotenv()
 
@@ -577,141 +573,51 @@ def agregar_psicologo():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# RECUPERACIÓN DE CONTRASEÑA
+# RECUPERACIÓN DE CONTRASEÑA (MÉTODO POR CÓDIGO TEMPORAL)
 # ══════════════════════════════════════════════════════════════════════════════
-
-def enviar_correo_recuperacion(destinatario, nombre, token):
-    api_key = os.getenv("BREVO_API_KEY", "")
-
-    if not api_key:
-        print("ERROR: BREVO_API_KEY no está configurado en .env")
-        return False
-
-    base_url = os.getenv("WEBHOOK_URL", "http://localhost:5001")
-    link = f"{base_url}/reset/{token}"
-    
-    cuerpo = f"""
-    <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:auto">
-      <div style="background:#007bff;padding:20px;border-radius:12px 12px 0 0;text-align:center">
-        <h2 style="color:white;margin:0">Serenity · UNACAR</h2>
-      </div>
-      <div style="background:#fff;padding:30px;border:1px solid #e9ecef;border-radius:0 0 12px 12px">
-        <p>Hola <b>{nombre}</b>,</p>
-        <p>Recibimos una solicitud para restablecer tu contraseña.</p>
-        <p>Haz clic en el botón — el enlace expira en <b>1 hora</b>:</p>
-        <div style="text-align:center;margin:30px 0">
-          <a href="{link}" style="background:#007bff;color:white;padding:14px 28px;
-             border-radius:8px;text-decoration:none;font-weight:bold">
-            Restablecer contraseña
-          </a>
-        </div>
-        <p style="color:#999;font-size:12px">Si no solicitaste esto, ignora este correo.</p>
-      </div>
-    </body></html>
-    """
-
-    url = "https://api.brevo.com/v3/smtp/email"
-    headers = {
-        "accept": "application/json",
-        "api-key": api_key,
-        "content-type": "application/json"
-    }
-    
-    # Intenta usar GMAIL_USER si aún lo tienes, o pon directamente tu correo registrado en Brevo
-    sender_email = os.getenv("GMAIL_USER", "serenity@unacar.mx")
-
-    payload = {
-        "sender": {
-            "name": "Serenity UNACAR",
-            "email": sender_email
-        },
-        "to": [{"email": destinatario, "name": nombre}],
-        "subject": "Serenity — Recuperación de contraseña",
-        "htmlContent": cuerpo
-    }
-
-    try:
-        print(f"Intentando enviar correo API a: {destinatario}")
-        response = requests.post(url, json=payload, headers=headers)
-        
-        if response.status_code == 201:
-            print("Correo enviado exitosamente vía API de Brevo")
-            return True
-        else:
-            print(f"ERROR API Brevo: {response.status_code} - {response.text}")
-            return False
-            
-    except Exception as e:
-        print(f"Error en la petición web: {type(e).__name__} - {e}")
-        return False
-
 
 @app.route("/recuperar", methods=["GET", "POST"])
 def recuperar():
     if request.method == "GET":
         return render_template("recuperar.html")
+    
     usuario = request.form.get("usuario", "").strip()
-    correo  = request.form.get("correo", "").strip().lower()
+    codigo_ingresado = request.form.get("codigo", "").strip()
+    nueva = request.form.get("nueva", "")
+    confirmar = request.form.get("confirmar", "")
+
+    # 1. Buscar al usuario y su código temporal
     row = query(
-        "SELECT id, nombre FROM psicologos WHERE usuario=%s AND activo=TRUE",
+        "SELECT id, codigo_temporal FROM psicologos WHERE usuario=%s AND activo=TRUE",
         (usuario,)
     )
     if not row:
-        return render_template("recuperar.html",
-            error="No encontramos ese usuario o está inactivo.")
-    user_id, nombre = row[0]
-    if not correo or "@" not in correo:
-        return render_template("recuperar.html",
-            error="Por favor ingresa un correo válido.")
-    # Guardar el correo si no lo tenía
-    execute(
-        "UPDATE psicologos SET correo=%s WHERE id=%s AND (correo IS NULL OR correo='')",
-        (correo, user_id)
-    )
-    token  = secrets.token_urlsafe(32)
-    expira = datetime.now() + timedelta(hours=1)
-    execute(
-        "UPDATE psicologos SET reset_token=%s, reset_expira=%s WHERE id=%s",
-        (token, expira, user_id)
-    )
-    enviado = enviar_correo_recuperacion(correo, nombre, token)
-    if enviado:
-        partes = correo.split("@")
-        dominio = partes[1] if len(partes) > 1 else "correo"
-        return render_template("recuperar.html",
-            exito=f"Enviamos un enlace a {correo[:3]}***@{dominio}")
-    else:
-        return render_template("recuperar.html",
-            error="Error al enviar el correo. Contacta al administrador.")
+        return render_template("recuperar.html", error="Usuario no encontrado o inactivo.")
+    
+    user_id, codigo_real = row[0]
 
+    # 2. Verificar que el código temporal coincida
+    if not codigo_real or codigo_ingresado != codigo_real:
+        return render_template("recuperar.html", error="El código temporal es incorrecto.")
 
-@app.route("/reset/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    row = query(
-        "SELECT id, nombre, reset_expira FROM psicologos WHERE reset_token=%s",
-        (token,)
-    )
-    if not row or not row[0]:
-        return render_template("reset.html", error="Enlace inválido o ya fue usado.")
-    user_id, nombre, expira = row[0]
-    if not expira or datetime.now() > expira:
-        return render_template("reset.html", error="El enlace expiró. Solicita uno nuevo.")
-    if request.method == "GET":
-        return render_template("reset.html", token=token, nombre=nombre)
-    nueva     = request.form.get("nueva", "")
-    confirmar = request.form.get("confirmar", "")
+    # 3. Validar que las contraseñas nuevas coincidan
     if nueva != confirmar:
-        return render_template("reset.html", token=token, nombre=nombre,
-            error="Las contraseñas no coinciden.")
+        return render_template("recuperar.html", error="Las contraseñas no coinciden.")
+
+    # 4. Validar seguridad de la nueva contraseña
     error_pwd = validar_password(nueva)
     if error_pwd:
-        return render_template("reset.html", token=token, nombre=nombre, error=error_pwd)
+        return render_template("recuperar.html", error=error_pwd)
+
+    # 5. Guardar la nueva contraseña
     hashed = generate_password_hash(nueva).decode("utf-8")
     execute(
-        "UPDATE psicologos SET password_hash=%s, reset_token=NULL, reset_expira=NULL, primer_acceso=FALSE WHERE id=%s",
+        "UPDATE psicologos SET password_hash=%s, primer_acceso=FALSE WHERE id=%s",
         (hashed, user_id)
     )
-    return render_template("reset.html", exito=True)
+
+    # Mandar al login con mensaje de éxito (usamos 'error' para aprovechar la alerta visual que ya tienes en login.html)
+    return render_template("login.html", error="✅ Contraseña actualizada. Ya puedes iniciar sesión.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

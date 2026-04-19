@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Serenity | Recuperar contraseña</title>
+  <title>Serenity | Restablecer contraseña</title>
   <link rel="icon" href="{{ url_for('static', filename='img/serenity.jpg') }}">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -15,8 +15,8 @@
     <div class="text-center mb-4">
       <img src="{{ url_for('static', filename='img/serenity.jpg') }}"
            style="width:60px;height:60px;border-radius:50%;object-fit:cover;" class="mb-3">
-      <h4 class="fw-bold text-primary">Recuperar contraseña</h4>
-      <p class="text-muted small">Te enviaremos un enlace a tu correo registrado.</p>
+      <h4 class="fw-bold text-primary">Restablecer contraseña</h4>
+      <p class="text-muted small">Ingresa tu usuario y tu código de acceso temporal.</p>
     </div>
 
     {% if error %}
@@ -25,44 +25,49 @@
     </div>
     {% endif %}
 
-    {% if exito %}
-    <div class="alert alert-success">
-      <i class="fas fa-check-circle me-2"></i>{{ exito }}
-      <hr>
-      <small>Revisa tu bandeja de entrada y sigue el enlace. Expira en 1 hora.</small>
-    </div>
-    <div class="text-center mt-3">
-      <a href="/" class="btn btn-outline-primary">
-        <i class="fas fa-arrow-left me-2"></i> Volver al inicio
-      </a>
-    </div>
-    {% else %}
     <form method="POST">
       <div class="mb-3">
         <label class="form-label fw-semibold">
           <i class="fas fa-user me-1 text-primary"></i> Tu usuario
         </label>
-        <input name="usuario" class="form-control form-control-lg"
+        <input type="text" name="usuario" class="form-control form-control-lg"
                placeholder="Ej. cramos" required autofocus>
       </div>
+      
+      <div class="mb-3">
+        <label class="form-label fw-semibold">
+          <i class="fas fa-key me-1 text-primary"></i> Código Temporal
+        </label>
+        <input type="password" name="codigo" class="form-control form-control-lg"
+               placeholder="Tu código de acceso" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">
+          <i class="fas fa-lock me-1 text-primary"></i> Nueva Contraseña
+        </label>
+        <input type="password" name="nueva" class="form-control form-control-lg"
+               placeholder="Mínimo 8 caracteres" required>
+      </div>
+
       <div class="mb-4">
         <label class="form-label fw-semibold">
-          <i class="fas fa-envelope me-1 text-primary"></i> Tu correo institucional
+          <i class="fas fa-lock me-1 text-primary"></i> Confirmar Contraseña
         </label>
-        <input type="email" name="correo" class="form-control form-control-lg"
-               placeholder="correo@delfin.unacar.mx" required>
-        <div class="form-text">Te enviaremos el enlace de recuperación aquí.</div>
+        <input type="password" name="confirmar" class="form-control form-control-lg"
+               placeholder="Repite la contraseña" required>
       </div>
+
       <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
-        <i class="fas fa-paper-plane me-2"></i> Enviar enlace
+        <i class="fas fa-save me-2"></i> Actualizar Contraseña
       </button>
     </form>
+    
     <div class="text-center">
       <a href="/" class="text-muted small">
         <i class="fas fa-arrow-left me-1"></i> Volver al inicio de sesión
       </a>
     </div>
-    {% endif %}
   </div>
 </div>
 </body>
