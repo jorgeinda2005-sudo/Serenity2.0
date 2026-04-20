@@ -195,6 +195,10 @@ def dashboard():
     if "user" not in session:
         return redirect("/")
 
+    # Si es admin, redirigir a su panel
+    if session.get("rol") == "admin":
+        return redirect("/admin")
+
     facs         = session.get("facultades", [])
     placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
 
@@ -234,6 +238,10 @@ def dashboard():
 def ver_alertas():
     if "user" not in session:
         return redirect("/")
+
+    # Si es admin, redirigir a su panel
+    if session.get("rol") == "admin":
+        return redirect("/admin")
 
     facs         = session.get("facultades", [])
     placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
@@ -289,6 +297,10 @@ def ver_usuarios():
     if "user" not in session:
         return redirect("/")
 
+    # Si es admin, redirigir a su panel
+    if session.get("rol") == "admin":
+        return redirect("/admin")
+
     facs         = session.get("facultades", [])
     placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
 
@@ -312,6 +324,10 @@ def ver_usuarios():
 def perfil_usuario(id):
     if "user" not in session:
         return redirect("/")
+
+    # Si es admin, redirigir a su panel
+    if session.get("rol") == "admin":
+        return redirect("/admin")
 
     facs         = session.get("facultades", [])
     placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
@@ -383,6 +399,10 @@ def perfil_usuario(id):
 def reporte_pdf(id):
     if "user" not in session:
         return redirect("/")
+
+    # Si es admin, redirigir a su panel
+    if session.get("rol") == "admin":
+        return redirect("/admin")
 
     facs         = session.get("facultades", [])
     placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
