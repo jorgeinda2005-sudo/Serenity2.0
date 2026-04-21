@@ -78,6 +78,16 @@ def execute(sql, params=()):
     finally:
         get_pool().putconn(conn)
 
+def contar_mensajes_usuario(user_id):
+    res = query("SELECT COUNT(*) FROM conversaciones WHERE user_id=%s AND role='user'", (user_id,))
+    return res[0][0] if res else 0
+
+def registrar_dependencia(user_id, nivel, reporte):
+    execute("""
+        INSERT INTO dependencias (user_id, nivel, reporte, timestamp) 
+        VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+    """, (user_id, nivel, reporte))
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # LOGIN
@@ -376,7 +386,8 @@ def perfil_usuario(id):
     """, (id,))
 
     dependencia = query("""
-        SELECT facultad, timestamp FROM dependencias WHERE user_id=%s
+        SELECT nivel, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI'), reporte
+        FROM dependencias WHERE user_id=%s ORDER BY timestamp DESC LIMIT 1
     """, (id,))
 
     return render_template(

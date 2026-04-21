@@ -79,10 +79,9 @@
     <h4 class="fw-bold text-primary mb-0">
       <i class="fas fa-user-circle me-2"></i>{{ nombre }}
     </h4>
-    <a href="{{ url_for('reporte_pdf', id=datos_personales[1] if datos_personales and datos_personales[1] else 0) }}"
-       class="btn btn-danger">
+    <button class="btn btn-danger" disabled>
       <i class="fas fa-file-pdf me-2"></i> Reporte PDF
-    </a>
+    </button>
   </div>
 
   <div class="row g-3">
@@ -132,6 +131,24 @@
         </h6>
         <div class="data-card">{{perfil[0]}}</div>
         <small class="text-muted">{{perfil[1]}}</small>
+      </div>
+      {% endif %}
+
+      {% if dependencia %}
+      <div class="card p-3 mt-3">
+        <h6 class="fw-bold mb-3">
+          <i class="fas fa-link me-2 text-warning"></i>Dependencia Emocional
+        </h6>
+        <div class="data-card">
+          <b>Nivel detectado:</b> 
+          <span class="badge {% if dependencia[0] == 'alto' %}bg-danger{% elif dependencia[0] == 'medio' %}bg-warning text-dark{% else %}bg-info{% endif %}">
+            {{ dependencia[0] | upper }}
+          </span>
+        </div>
+        <div class="small mt-2 p-2 bg-light border-start border-warning">
+          <i class="fas fa-clipboard-list me-1"></i> <b>Nota:</b> {{ dependencia[2] }}
+        </div>
+        <small class="text-muted d-block mt-2">Última detección: {{ dependencia[1] }}</small>
       </div>
       {% endif %}
 

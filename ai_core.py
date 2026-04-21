@@ -121,7 +121,8 @@ NO uses "alto" solo porque alguien esté triste o agobiado.
   "nivel_riesgo": "bajo | medio | alto",
   "tema": "tema detectado",
   "razon": "por qué ese nivel de riesgo",
-  "dependencia": false,
+  "dependencia": "bajo | medio | alto | ninguno",
+  "reporte_dependencia": "breve resumen de 2 líneas sobre el apego (o vacío si no se evalúa)",
   "enviar_directorio": false
 }}"""
  
@@ -150,10 +151,20 @@ def llamar_openai(mensajes):
  
 async def obtener_respuesta_ia(user_id, mensaje_usuario):
     """Llama a Groq primero, si falla cae a OpenAI automáticamente."""
+    from app import contar_mensajes_usuario, registrar_dependencia
+    
     historial_previo = obtener_historial(user_id, limite=10)
+    
+    # Lógica de evaluación cada 15 mensajes
+    num_mensajes = contar_mensajes_usuario(user_id)
+    evaluar_ahora = (num_mensajes + 1) % 15 == 0
+    
+    prompt_adicional = ""
+    if evaluar_ahora:
+        prompt_adicional = "\nNOTA CRÍTICA: El usuario ha alcanzado un múltiplo de 15 mensajes. DEBES evaluar su nivel de dependencia emocional hacia ti. En el campo 'dependencia', elige: 'bajo', 'medio', 'alto' o 'ninguno'. En el campo 'reporte_dependencia', escribe un resumen de 2 líneas sobre su apego."
  
     mensajes = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": system_prompt + prompt_adicional},
         *historial_previo,
         {"role": "user", "content": mensaje_usuario}
     ]
@@ -179,7 +190,8 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
                 "nivel_riesgo": "bajo",
                 "tema": "error",
                 "razon": str(e2),
-                "dependencia": False,
+                "dependencia": "ninguno",
+                "reporte_dependencia": "",
                 "enviar_directorio": False
             }
  
@@ -198,6 +210,11 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
         if data["nivel_riesgo"] in ["medio", "alto"]:
             registrar_alerta(user_id, data["nivel_riesgo"], data["tema"], data["razon"])
  
+        # Registrar dependencia si se evaluó y detectó
+        if evaluar_ahora and data.get("dependencia") and data["dependencia"] != "ninguno":
+            reporte = data.get("reporte_dependencia", "Sin detalles adicionales.")
+            registrar_dependencia(user_id, data["dependencia"], reporte)
+ 
         return data
  
     except Exception as e:
@@ -207,6 +224,7 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
             "nivel_riesgo": "bajo",
             "tema": "error",
             "razon": str(e),
-            "dependencia": False,
+            "dependencia": "ninguno",
+            "reporte_dependencia": "",
             "enviar_directorio": False
         }
