@@ -123,6 +123,7 @@ NO uses "alto" solo porque alguien esté triste o agobiado.
   "razon": "por qué ese nivel de riesgo",
   "dependencia": "bajo | medio | alto | ninguno",
   "reporte_dependencia": "breve resumen de 2 líneas sobre el apego (o vacío si no se evalúa)",
+  "perfil_emocional": "análisis psicológico profundo del estado actual del alumno (vacio si no toca evaluar)",
   "enviar_directorio": false
 }}"""
  
@@ -151,17 +152,20 @@ def llamar_openai(mensajes):
  
 async def obtener_respuesta_ia(user_id, mensaje_usuario):
     """Llama a Groq primero, si falla cae a OpenAI automáticamente."""
-    from app import contar_mensajes_usuario, registrar_dependencia
+    from app import contar_mensajes_usuario, registrar_dependencia, registrar_perfil_emocional
     
     historial_previo = obtener_historial(user_id, limite=10)
     
-    # Lógica de evaluación cada 15 mensajes
+    # Lógica de evaluación
     num_mensajes = contar_mensajes_usuario(user_id)
-    evaluar_ahora = (num_mensajes + 1) % 15 == 0
+    evaluar_dependencia = (num_mensajes + 1) % 15 == 0
+    evaluar_perfil = (num_mensajes + 1) % 30 == 0
     
     prompt_adicional = ""
-    if evaluar_ahora:
-        prompt_adicional = "\nNOTA CRÍTICA: El usuario ha alcanzado un múltiplo de 15 mensajes. DEBES evaluar su nivel de dependencia emocional hacia ti. En el campo 'dependencia', elige: 'bajo', 'medio', 'alto' o 'ninguno'. En el campo 'reporte_dependencia', escribe un resumen de 2 líneas sobre su apego."
+    if evaluar_perfil:
+        prompt_adicional = "\n¡AVISO CRÍTICO!: El usuario llegó a 30 mensajes. DEBES redactar un 'perfil_emocional' profundo (mínimo 3 líneas) analizando su evolución psicológica y estado actual."
+    elif evaluar_dependencia:
+        prompt_adicional = "\nNOTA: Evalúa el nivel de 'dependencia' emocional y escribe el 'reporte_dependencia'."
  
     mensajes = [
         {"role": "system", "content": system_prompt + prompt_adicional},
@@ -192,6 +196,7 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
                 "razon": str(e2),
                 "dependencia": "ninguno",
                 "reporte_dependencia": "",
+                "perfil_emocional": "",
                 "enviar_directorio": False
             }
  
@@ -211,9 +216,13 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
             registrar_alerta(user_id, data["nivel_riesgo"], data["tema"], data["razon"])
  
         # Registrar dependencia si se evaluó y detectó
-        if evaluar_ahora and data.get("dependencia") and data["dependencia"] != "ninguno":
+        if evaluar_dependencia and data.get("dependencia") and data["dependencia"] != "ninguno":
             reporte = data.get("reporte_dependencia", "Sin detalles adicionales.")
             registrar_dependencia(user_id, data["dependencia"], reporte)
+            
+        # Registrar Perfil Emocional (cada 30 mensajes)
+        if evaluar_perfil and data.get("perfil_emocional"):
+            registrar_perfil_emocional(user_id, data["perfil_emocional"])
  
         return data
  
@@ -226,5 +235,6 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
             "razon": str(e),
             "dependencia": "ninguno",
             "reporte_dependencia": "",
+            "perfil_emocional": "",
             "enviar_directorio": False
         }

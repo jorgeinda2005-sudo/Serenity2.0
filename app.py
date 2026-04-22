@@ -88,6 +88,12 @@ def registrar_dependencia(user_id, nivel, reporte):
         VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
     """, (user_id, nivel, reporte))
 
+def registrar_perfil_emocional(user_id, analisis):
+    execute("""
+        INSERT INTO perfil_emocional (user_id, analisis, timestamp) 
+        VALUES (%s, %s, CURRENT_TIMESTAMP)
+    """, (user_id, analisis))
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # LOGIN
