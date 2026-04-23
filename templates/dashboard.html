@@ -87,7 +87,7 @@
           <i class="fas fa-users fa-2x text-success mb-3"></i>
           <div class="metric-num text-success">{{ usuarios }}</div>
           <p class="text-muted mb-0">Alumnos registrados</p>
-          <small class="text-primary mt-2 d-block"><i class="fas fa-arrow-right me-1"></i>Ver usuarios</small>
+          <small class="text-success mt-2 d-block"><i class="fas fa-arrow-right me-1"></i>Ver usuarios</small>
         </div>
       </a>
     </div>
@@ -102,11 +102,14 @@
       </a>
     </div>
     <div class="col-md-4">
-      <div class="metric-card">
-        <i class="fas fa-chart-line fa-2x text-info mb-3"></i>
-        <div class="metric-num text-info">{{ perfiles }}</div>
-        <p class="text-muted mb-0">Perfiles emocionales</p>
-      </div>
+      <a href="{{ url_for('ver_perfiles') }}" class="text-decoration-none">
+        <div class="metric-card">
+          <i class="fas fa-chart-line fa-2x text-info mb-3"></i>
+          <div class="metric-num text-info">{{ perfiles }}</div>
+          <p class="text-muted mb-0">Perfiles emocionales</p>
+          <small class="text-info mt-2 d-block"><i class="fas fa-arrow-right me-1"></i>Ver perfiles</small>
+        </div>
+      </a>
     </div>
   </div>
 </div>

@@ -305,6 +305,42 @@ def ver_alertas():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PERFILES EMOCIONALES
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/perfiles")
+def ver_perfiles():
+    if "user" not in session:
+        return redirect("/")
+
+    if session.get("rol") == "admin":
+        return redirect("/admin")
+
+    facs         = session.get("facultades", [])
+    placeholders = ",".join(["%s"] * len(facs)) if facs else "'__vacío__'"
+
+    sql = f"""
+        SELECT * FROM (
+            SELECT DISTINCT ON (p.user_id)
+                   p.user_id,
+                   COALESCE(NULLIF(u.nombre_completo,''), u.username, CAST(u.user_id AS TEXT)) AS alumno,
+                   u.facultad,
+                   p.analisis,
+                   TO_CHAR(p.timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS fecha,
+                   p.timestamp
+            FROM perfil_emocional p
+            JOIN usuarios u ON u.user_id = p.user_id
+            WHERE u.facultad IN ({placeholders})
+            ORDER BY p.user_id, p.timestamp DESC
+        ) sub
+        ORDER BY timestamp DESC
+    """
+    datos = query(sql, list(facs))
+
+    return render_template("perfiles.html", datos=datos, user=session["user"])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # USUARIOS
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -323,10 +359,11 @@ def ver_usuarios():
     datos = query(f"""
         SELECT u.user_id, u.username, u.nombre_completo, u.facultad,
                (SELECT COUNT(*) FROM conversaciones c WHERE c.user_id = u.user_id) AS mensajes,
-               (SELECT MAX(timestamp) FROM conversaciones c WHERE c.user_id = u.user_id) AS ultima
+               (SELECT TO_CHAR(MAX(timestamp) AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') 
+                FROM conversaciones c WHERE c.user_id = u.user_id) AS ultima
         FROM usuarios u
         WHERE u.facultad IN ({placeholders})
-        ORDER BY ultima DESC NULLS LAST
+        ORDER BY (SELECT MAX(timestamp) FROM conversaciones c WHERE c.user_id = u.user_id) DESC NULLS LAST
     """, facs)
 
     return render_template("usuarios.html", datos=datos, user=session["user"])
@@ -368,7 +405,7 @@ def perfil_usuario(id):
     user_name = usuario[0][0]
 
     mensajes = query("""
-        SELECT role, content, timestamp
+        SELECT role, content, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI')
         FROM conversaciones WHERE user_id=%s ORDER BY id
     """, (id,))
 
