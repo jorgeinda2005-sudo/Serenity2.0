@@ -33,9 +33,10 @@ def release_conn(conn):
         pool.putconn(conn)
 
 def execute_query(sql, params=(), fetch=False):
-    """Ejecuta una consulta SQL de forma segura, cerrando conexiones rotas."""
+    """Ejecuta una consulta SQL de forma segura, cerrando conexiones rotas e imprimiendo errores."""
     conn = get_conn()
     if not conn:
+        print("❌ ERROR CRÍTICO: No se pudo obtener conexión del Pool")
         return [] if fetch else None
     
     try:
@@ -49,8 +50,8 @@ def execute_query(sql, params=(), fetch=False):
         return result
     except Exception as e:
         conn.rollback()
-        logger.error(f"Error en BD: {e}")
-        # Si la conexión falla, forzamos el cierre para que el pool la renueve
+        # ESTA LÍNEA ES CLAVE: Imprime el error real en los logs de Railway
+        print(f"🔥 ERROR DE BASE DE DATOS: {str(e)}") 
         try:
             conn.close()
         except:
