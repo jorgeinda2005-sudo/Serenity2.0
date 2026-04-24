@@ -152,7 +152,7 @@ def llamar_openai(mensajes):
  
 async def obtener_respuesta_ia(user_id, mensaje_usuario):
     """Llama a Groq primero, si falla cae a OpenAI automáticamente."""
-    from app import contar_mensajes_usuario, registrar_dependencia, registrar_perfil_emocional
+    from database import contar_mensajes_usuario, registrar_dependencia, registrar_perfil_emocional
     
     historial_previo = obtener_historial(user_id, limite=10)
     

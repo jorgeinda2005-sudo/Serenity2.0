@@ -105,3 +105,21 @@ def obtener_historial(user_id, limite=10):
 def registrar_alerta(user_id, nivel_riesgo, tema, razon):
     sql = "INSERT INTO alertas (user_id, nivel_riesgo, tema, razon) VALUES (%s, %s, %s, %s)"
     execute_query(sql, (user_id, nivel_riesgo, tema, razon))
+
+def contar_mensajes_usuario(user_id):
+    res = execute_query("SELECT COUNT(*) FROM conversaciones WHERE user_id=%s AND role='user'", (user_id,), fetch=True)
+    return res[0][0] if res else 0
+
+def registrar_dependencia(user_id, nivel, reporte):
+    sql = """
+        INSERT INTO dependencias (user_id, nivel, reporte, timestamp) 
+        VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+    """
+    execute_query(sql, (user_id, nivel, reporte))
+
+def registrar_perfil_emocional(user_id, analisis):
+    sql = """
+        INSERT INTO perfil_emocional (user_id, analisis, timestamp) 
+        VALUES (%s, %s, CURRENT_TIMESTAMP)
+    """
+    execute_query(sql, (user_id, analisis))
