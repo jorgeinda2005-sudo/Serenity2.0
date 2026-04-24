@@ -17,13 +17,30 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "$2b$12$L8e2YqgYLVHhMcp4xXpsKOpDQC6xNW11.hqM8V0TCRXFVcbsOb8SG")
+# FIX: La secret_key nunca debe estar hardcodeada. Genera una con:
+#   python -c "import secrets; print(secrets.token_hex(32))"
+# y ponla en tu .env como SECRET_KEY=...
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY no configurada en el .env")
 
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=1)
 app.config["SESSION_COOKIE_HTTPONLY"]    = True
 app.config["SESSION_COOKIE_SAMESITE"]   = "Lax"
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+_pool = None
+
+def get_pool():
+    global _pool
+    if _pool is None:
+        if not DATABASE_URL:
+            raise ValueError("DATABASE_URL no configurada en el .env")
+        _pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=2, maxconn=10, dsn=DATABASE_URL
+        )
+    return _pool
 
 def validar_password(password):
     if len(password) < 8:
@@ -44,15 +61,6 @@ def login_requerido(f):
         return f(*args, **kwargs)
     return decorated
 
-_pool = None
-
-def get_pool():
-    global _pool
-    if _pool is None:
-        _pool = psycopg2.pool.ThreadedConnectionPool(
-            minconn=2, maxconn=10, dsn=DATABASE_URL
-        )
-    return _pool
 
 def query(sql, params=()):
     conn = get_pool().getconn()
@@ -61,6 +69,12 @@ def query(sql, params=()):
             cur.execute(sql, params)
             return cur.fetchall()
     except Exception as e:
+        # FIX: cerrar la conexión rota para evitar "envenenamiento" del pool.
+        # putconn() detectará que está cerrada y la descartará correctamente.
+        try:
+            conn.close()
+        except Exception:
+            pass
         print(f"Error en query: {e}")
         return []
     finally:
@@ -74,6 +88,11 @@ def execute(sql, params=()):
         conn.commit()
     except Exception as e:
         conn.rollback()
+        # FIX: cerrar la conexión rota
+        try:
+            conn.close()
+        except Exception:
+            pass
         print(f"Error en execute: {e}")
     finally:
         get_pool().putconn(conn)
@@ -636,7 +655,7 @@ def agregar_psicologo():
     try:
         execute(
             "INSERT INTO psicologos (nombre, usuario, activo, rol, primer_acceso, codigo_temporal) "
-            "VALUES (%s, %s, TRUE, 'psicologo', TRUE, %s)",
+            "VALUES (%s, TRUE, 'psicologo', TRUE, %s)",
             (nombre, usuario, codigo)
         )
     except psycopg2.IntegrityError:
@@ -690,7 +709,6 @@ def recuperar():
         (hashed, user_id)
     )
 
-    # Mandar al login con mensaje de éxito (usamos 'error' para aprovechar la alerta visual que ya tienes en login.html)
     return render_template("login.html", error="✅ Contraseña actualizada. Ya puedes iniciar sesión.")
 
 
