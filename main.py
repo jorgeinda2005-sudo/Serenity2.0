@@ -195,8 +195,16 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _guardar_y_notificar(update, context)
         return
 
-    # ── Conversación normal con la IA ──────────────────────────────────────────
-    data = await obtener_respuesta_ia(user_id, texto)
+    # ── Conversación normal con la IA — con protección ─────────────────────────
+    try:
+        data = await obtener_respuesta_ia(user_id, texto)
+    except Exception as e:
+        logger.error(f"Error en obtener_respuesta_ia: {e}")
+        await update.message.reply_text(
+            "Tuve un problema procesando tu mensaje. ¿Podrías intentarlo de nuevo? 💙"
+        )
+        return
+
     await update.message.reply_text(data["respuesta"])
 
     from datetime import datetime, timedelta
@@ -281,14 +289,18 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
             )
             await _enviar_directorio_pdf_desde_callback(query)
 
-            enviar_whatsapp_emergencia(
-                f"🚨 Riesgo ALTO (usuario ya registrado)\n"
-                f"Nombre: {usuario_info.get('nombre_completo', '—')}\n"
-                f"Matrícula: {usuario_info.get('matricula', '—')}\n"
-                f"Correo: {usuario_info.get('correo', '—')}\n"
-                f"Tel: {usuario_info.get('telefono', '—')}\n"
-                f"Motivo: {razon}"
-            )
+            try:
+                enviar_whatsapp_emergencia(
+                    f"🚨 Riesgo ALTO (usuario ya registrado)\n"
+                    f"Nombre: {usuario_info.get('nombre_completo', '—')}\n"
+                    f"Matrícula: {usuario_info.get('matricula', '—')}\n"
+                    f"Correo: {usuario_info.get('correo', '—')}\n"
+                    f"Tel: {usuario_info.get('telefono', '—')}\n"
+                    f"Motivo: {razon}"
+                )
+            except Exception as e:
+                logger.error(f"Error enviando WhatsApp de emergencia: {e}")
+
             try:
                 enviar_correo_alerta(
                     "mduarte@delfin.unacar.mx",
@@ -389,12 +401,16 @@ async def _guardar_y_notificar(update, context):
     )
     await _enviar_directorio_pdf(update)
 
-    enviar_whatsapp_emergencia(
-        f"🚨 Riesgo ALTO\n"
-        f"Nombre: {nombre}\nMatrícula: {matricula}\n"
-        f"Correo: {correo}\nTel: {telefono}\n"
-        f"Facultad: {facultad}\nMotivo: {razon}"
-    )
+    try:
+        enviar_whatsapp_emergencia(
+            f"🚨 Riesgo ALTO\n"
+            f"Nombre: {nombre}\nMatrícula: {matricula}\n"
+            f"Correo: {correo}\nTel: {telefono}\n"
+            f"Facultad: {facultad}\nMotivo: {razon}"
+        )
+    except Exception as e:
+        logger.error(f"Error enviando WhatsApp de emergencia: {e}")
+
     try:
         usuario_info = obtener_datos_usuario(user_id)
         enviar_correo_alerta(
@@ -444,12 +460,16 @@ async def _guardar_y_notificar_query(query, context):
     )
     await _enviar_directorio_pdf_desde_callback(query)
 
-    enviar_whatsapp_emergencia(
-        f"🚨 Riesgo ALTO\n"
-        f"Nombre: {nombre}\nMatrícula: {matricula}\n"
-        f"Correo: {correo}\nTel: {telefono}\n"
-        f"Facultad: {facultad}\nMotivo: {razon}"
-    )
+    try:
+        enviar_whatsapp_emergencia(
+            f"🚨 Riesgo ALTO\n"
+            f"Nombre: {nombre}\nMatrícula: {matricula}\n"
+            f"Correo: {correo}\nTel: {telefono}\n"
+            f"Facultad: {facultad}\nMotivo: {razon}"
+        )
+    except Exception as e:
+        logger.error(f"Error enviando WhatsApp de emergencia: {e}")
+
     try:
         usuario_info = obtener_datos_usuario(user_id)
         enviar_correo_alerta(
