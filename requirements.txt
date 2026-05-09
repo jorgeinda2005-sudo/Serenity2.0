@@ -1,4 +1,4 @@
-# --- CORE Y TELEGRAM (Actualizado para Python 3.13) ---
+# --- CORE Y TELEGRAM ---
 python-telegram-bot[webhooks]>=21.10
 python-dotenv>=1.0.0
 httpx>=0.25.0
@@ -21,3 +21,6 @@ twilio>=8.0.0
 flask>=3.0.0
 flask-bcrypt>=1.0.1
 reportlab>=4.0.0
+
+# --- SERVIDOR WEB (Para deploy unificado en Render) ---
+waitress>=3.0.0
