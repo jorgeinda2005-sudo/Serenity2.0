@@ -103,7 +103,7 @@ async def directorio(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# MENSAJE PRINCIPAL — todo el estado se maneja aquí
+# MENSAJE PRINCIPAL
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -166,8 +166,6 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
             return
-
-        # Guardar teléfono y pasar a selección de facultad
         context.user_data["telefono"] = texto
         context.user_data["estado"]   = ESTADO_FACULTAD
 
@@ -195,7 +193,7 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _guardar_y_notificar(update, context)
         return
 
-    # ── Conversación normal con la IA — con protección ─────────────────────────
+    # ── Conversación normal con la IA ──────────────────────────────────────────
     try:
         data = await obtener_respuesta_ia(user_id, texto)
     except Exception as e:
@@ -214,16 +212,14 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["ultima_alerta"] = datetime.now()
         context.user_data["alerta_pendiente"] = data.get("razon", "")
         context.user_data["ya_registrado"] = usuario_registrado(user_id)
-        # Siempre mostrar botones de consentimiento
         await preguntar_apoyo(update, context)
 
     elif data.get("enviar_directorio") and data.get("nivel_riesgo") != "alto":
-        # Solo mandar directorio si NO es alerta alta (para evitar doble PDF)
         await _enviar_directorio_pdf(update)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FLUJO DE CONSENTIMIENTO (botones inline)
+# FLUJO DE CONSENTIMIENTO
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def preguntar_apoyo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -273,13 +269,10 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
 
     elif query.data == "datos_si":
         ya_registrado = context.user_data.get("ya_registrado", False)
-
         if ya_registrado:
-            # Ya tiene datos — notificar al psicólogo con los datos existentes
             user_id = query.from_user.id
             usuario_info = obtener_datos_usuario(user_id)
             razon = context.user_data.get("alerta_pendiente", "")
-
             await query.edit_message_text(
                 "💙 Gracias por confiar. Ya tenemos tus datos registrados.\n\n"
                 "Notificaremos a un psicólogo para que pueda contactarte pronto.\n\n"
@@ -287,7 +280,6 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
                 parse_mode="Markdown"
             )
             await _enviar_directorio_pdf_desde_callback(query)
-
             try:
                 enviar_whatsapp_emergencia(
                     f"🚨 Riesgo ALTO (usuario ya registrado)\n"
@@ -298,20 +290,14 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
                     f"Motivo: {razon}"
                 )
             except Exception as e:
-                logger.error(f"Error enviando WhatsApp de emergencia: {e}")
-
+                logger.error(f"Error enviando WhatsApp: {e}")
             try:
-                enviar_correo_alerta(
-                    "mduarte@delfin.unacar.mx",
-                    usuario_info,
-                    f"El alumno solicitó apoyo nuevamente. Motivo: {razon}"
-                )
+                enviar_correo_alerta("mduarte@delfin.unacar.mx", usuario_info,
+                                     f"El alumno solicitó apoyo nuevamente. Motivo: {razon}")
             except Exception as e:
                 logger.error(f"Error enviando correo: {e}")
-
             context.user_data.clear()
         else:
-            # No registrado — pedir datos
             await query.edit_message_text(
                 "Gracias por confiar en mí 💙\n\n"
                 "Para conectarte con el psicólogo adecuado, "
@@ -332,7 +318,6 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
         context.user_data.clear()
 
     elif query.data.startswith("fac_"):
-        # Selección de facultad con botón
         idx = int(query.data.split("_")[1])
         facultad = FACULTADES[idx]
         context.user_data["facultad"] = facultad
@@ -348,23 +333,26 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
 # ══════════════════════════════════════════════════════════════════════════════
 
 def limpiar_historial_usuario(user_id):
-    """Borra el historial de conversación del usuario en la BD para resetear el contexto de la IA."""
     from serenity.database import get_conn, release_conn
     conn = get_conn()
+    if not conn:
+        return
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM conversaciones WHERE user_id=%s", (user_id,))
         conn.commit()
         logger.info(f"Historial limpiado para user_id {user_id}")
     except Exception as e:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         logger.error(f"Error limpiando historial: {e}")
     finally:
         release_conn(conn)
 
 
 async def _guardar_y_notificar(update, context):
-    """Guarda el registro completo y notifica al psicólogo. Llamado desde mensaje de texto."""
     user_id   = update.effective_user.id
     nombre    = context.user_data.get("nombre_completo", "")
     matricula = context.user_data.get("matricula", "")
@@ -375,21 +363,21 @@ async def _guardar_y_notificar(update, context):
 
     completar_registro(user_id, nombre, matricula, correo, telefono)
 
-    # Limpiar historial para que la IA no siga viendo el contexto de riesgo
-    limpiar_historial_usuario(user_id)
-
-    # Guardar facultad en la tabla usuarios
     from serenity.database import get_conn, release_conn
     conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE usuarios SET facultad=%s WHERE user_id=%s", (facultad, user_id))
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        logger.error(f"Error guardando facultad: {e}")
-    finally:
-        release_conn(conn)
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE usuarios SET facultad=%s WHERE user_id=%s", (facultad, user_id))
+            conn.commit()
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            logger.error(f"Error guardando facultad: {e}")
+        finally:
+            release_conn(conn)
 
     await update.message.reply_text(
         "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
@@ -408,26 +396,23 @@ async def _guardar_y_notificar(update, context):
             f"Facultad: {facultad}\nMotivo: {razon}"
         )
     except Exception as e:
-        logger.error(f"Error enviando WhatsApp de emergencia: {e}")
+        logger.error(f"Error enviando WhatsApp: {e}")
 
     try:
         usuario_info = obtener_datos_usuario(user_id)
         enviar_correo_alerta(
-            "mduarte@delfin.unacar.mx",
-            usuario_info,
+            "mduarte@delfin.unacar.mx", usuario_info,
             f"El alumno solicitó apoyo voluntariamente. Facultad: {facultad}. Motivo: {razon}"
         )
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")
 
-    # Limpiar historial en BD para que la IA no siga viendo el contexto de riesgo
     limpiar_historial_usuario(user_id)
     context.user_data.clear()
     context.user_data["ultima_alerta"] = datetime.now()
 
 
 async def _guardar_y_notificar_query(query, context):
-    """Igual que _guardar_y_notificar pero desde callback query (botón inline)."""
     user_id   = query.from_user.id
     nombre    = context.user_data.get("nombre_completo", "")
     matricula = context.user_data.get("matricula", "")
@@ -440,15 +425,19 @@ async def _guardar_y_notificar_query(query, context):
 
     from serenity.database import get_conn, release_conn
     conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE usuarios SET facultad=%s WHERE user_id=%s", (facultad, user_id))
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        logger.error(f"Error guardando facultad: {e}")
-    finally:
-        release_conn(conn)
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE usuarios SET facultad=%s WHERE user_id=%s", (facultad, user_id))
+            conn.commit()
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            logger.error(f"Error guardando facultad: {e}")
+        finally:
+            release_conn(conn)
 
     await query.message.reply_text(
         "💙 Quiero que sepas que no estás solo/a en esto.\n\n"
@@ -461,32 +450,26 @@ async def _guardar_y_notificar_query(query, context):
 
     try:
         enviar_whatsapp_emergencia(
-            f"🚨 Riesgo ALTO\n"
-            f"Nombre: {nombre}\nMatrícula: {matricula}\n"
-            f"Correo: {correo}\nTel: {telefono}\n"
-            f"Facultad: {facultad}\nMotivo: {razon}"
+            f"🚨 Riesgo ALTO\nNombre: {nombre}\nMatrícula: {matricula}\n"
+            f"Correo: {correo}\nTel: {telefono}\nFacultad: {facultad}\nMotivo: {razon}"
         )
     except Exception as e:
-        logger.error(f"Error enviando WhatsApp de emergencia: {e}")
+        logger.error(f"Error enviando WhatsApp: {e}")
 
     try:
         usuario_info = obtener_datos_usuario(user_id)
         enviar_correo_alerta(
-            "mduarte@delfin.unacar.mx",
-            usuario_info,
+            "mduarte@delfin.unacar.mx", usuario_info,
             f"El alumno solicitó apoyo. Facultad: {facultad}. Motivo: {razon}"
         )
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")
 
-    # Limpiar historial en BD para que la IA no siga viendo el contexto de riesgo
     limpiar_historial_usuario(user_id)
     context.user_data.clear()
     context.user_data["ultima_alerta"] = datetime.now()
 
-    await query.message.reply_text(
-        "Sigo aquí si quieres hablar de cualquier otra cosa 💙"
-    )
+    await query.message.reply_text("Sigo aquí si quieres hablar de cualquier otra cosa 💙")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -494,7 +477,6 @@ async def _guardar_y_notificar_query(query, context):
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def _enviar_directorio_pdf_desde_callback(query):
-    """Envía el PDF desde un callback (botón inline)."""
     if not os.path.exists(PDF_DIRECTORIO):
         await query.message.reply_text(
             "📎 No encontré el PDF en el servidor. "
@@ -558,6 +540,7 @@ async def manejar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await archivo.download_to_drive(ruta_audio)
 
     try:
+        import asyncio as _asyncio
         def transcribir():
             with open(ruta_audio, "rb") as file:
                 return groq_client.audio.transcriptions.create(
@@ -565,7 +548,7 @@ async def manejar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     model="whisper-large-v3-turbo",
                     response_format="text"
                 )
-        texto_transcrito = await asyncio.to_thread(transcribir)
+        texto_transcrito = await _asyncio.to_thread(transcribir)
     except Exception as e:
         logger.error(f"Error transcribiendo audio: {e}")
         texto_transcrito = "Lo siento, tuve problemas escuchando el audio. ¿Podrías escribirlo?"
@@ -578,17 +561,19 @@ async def manejar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# MAIN
+# BUILD APP — usado por server.py para el webhook integrado en Flask
 # ══════════════════════════════════════════════════════════════════════════════
 
-def main():
-    crear_base_datos()
-
+def build_app() -> Application:
+    """
+    Construye y configura la Application de python-telegram-bot.
+    No inicia ningún servidor ni bucle de eventos propio.
+    Usado por server.py para el modo webhook integrado en Flask.
+    """
     if not TOKEN_TELEGRAM:
-        logger.error("No se encontró el TOKEN_TELEGRAM en el archivo .env")
-        return
+        raise RuntimeError("TOKEN_TELEGRAM no configurado en .env")
 
-    app = (
+    application = (
         Application.builder()
         .token(TOKEN_TELEGRAM)
         .connect_timeout(60)
@@ -598,28 +583,30 @@ def main():
         .build()
     )
 
-    app.add_handler(CommandHandler("start",      start))
-    app.add_handler(CommandHandler("menu",       menu))
-    app.add_handler(CommandHandler("directorio", directorio))
-    app.add_handler(CallbackQueryHandler(manejar_consentimiento))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
-    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO,   manejar_audio))
+    application.add_handler(CommandHandler("start",      start))
+    application.add_handler(CommandHandler("menu",       menu))
+    application.add_handler(CommandHandler("directorio", directorio))
+    application.add_handler(CallbackQueryHandler(manejar_consentimiento))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
+    application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO,   manejar_audio))
 
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
-    PORT        = int(os.getenv("PORT", "8080"))
+    return application
 
-    if WEBHOOK_URL:
-        webhook_url = f"{WEBHOOK_URL}/{TOKEN_TELEGRAM}"
-        logger.info(f"Serenity en línea con WEBHOOK → {webhook_url}")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=TOKEN_TELEGRAM,
-            webhook_url=webhook_url,
-        )
-    else:
-        logger.info("Serenity en línea con POLLING (modo local)...")
-        app.run_polling(poll_interval=0.0, timeout=20, bootstrap_retries=-1, drop_pending_updates=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN — solo para ejecución local con polling  (python main.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def main():
+    crear_base_datos()
+    application = build_app()
+    logger.info("Serenity en línea con POLLING (modo local)...")
+    application.run_polling(
+        poll_interval=0.0,
+        timeout=20,
+        bootstrap_retries=-1,
+        drop_pending_updates=True,
+    )
 
 
 if __name__ == "__main__":
