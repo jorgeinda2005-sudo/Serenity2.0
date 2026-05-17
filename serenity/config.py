@@ -10,10 +10,11 @@ from twilio.rest import Client as TwilioClient
 load_dotenv()
 
 # --- CONFIGURACIÓN DE RUTAS ---
+# FIX: Como este archivo ahora está en serenity/, subimos un nivel para llegar a la raíz del proyecto
 if getattr(sys, "frozen", False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TMP_DIR = Path(BASE_DIR) / "tmp_audio"
 TMP_DIR.mkdir(parents=True, exist_ok=True)

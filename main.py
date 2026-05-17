@@ -8,13 +8,13 @@ from telegram.ext import (
     CallbackQueryHandler, filters, ContextTypes
 )
 
-from config import TOKEN_TELEGRAM, TMP_DIR, PDF_DIRECTORIO, logger
-from database import (
+from serenity.config import TOKEN_TELEGRAM, TMP_DIR, PDF_DIRECTORIO, logger
+from serenity.database import (
     crear_base_datos, guardar_usuario, completar_registro,
     usuario_registrado, obtener_datos_usuario
 )
-from ai_core import obtener_respuesta_ia, groq_client
-from alertas import enviar_correo_alerta, enviar_whatsapp_emergencia
+from serenity.ai_core import obtener_respuesta_ia, groq_client
+from serenity.alertas import enviar_correo_alerta, enviar_whatsapp_emergencia
 
 # ── Estados del flujo de registro ─────────────────────────────────────────────
 ESTADO_NOMBRE    = "nombre"
@@ -207,7 +207,6 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(data["respuesta"])
 
-    from datetime import datetime, timedelta
     ultima = context.user_data.get("ultima_alerta")
     cooldown_ok = (ultima is None or datetime.now() - ultima > timedelta(minutes=60))
 
@@ -350,7 +349,7 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
 
 def limpiar_historial_usuario(user_id):
     """Borra el historial de conversación del usuario en la BD para resetear el contexto de la IA."""
-    from database import get_conn, release_conn
+    from serenity.database import get_conn, release_conn
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -380,7 +379,7 @@ async def _guardar_y_notificar(update, context):
     limpiar_historial_usuario(user_id)
 
     # Guardar facultad en la tabla usuarios
-    from database import get_conn, release_conn
+    from serenity.database import get_conn, release_conn
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -439,7 +438,7 @@ async def _guardar_y_notificar_query(query, context):
 
     completar_registro(user_id, nombre, matricula, correo, telefono)
 
-    from database import get_conn, release_conn
+    from serenity.database import get_conn, release_conn
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -496,8 +495,6 @@ async def _guardar_y_notificar_query(query, context):
 
 async def _enviar_directorio_pdf_desde_callback(query):
     """Envía el PDF desde un callback (botón inline)."""
-    import os
-    from config import PDF_DIRECTORIO
     if not os.path.exists(PDF_DIRECTORIO):
         await query.message.reply_text(
             "📎 No encontré el PDF en el servidor. "

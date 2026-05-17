@@ -1,7 +1,7 @@
 import os
 import psycopg2
 from psycopg2 import pool
-from config import logger
+from .config import logger
 
 # Cargamos la URL
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -17,8 +17,8 @@ def get_pool():
         try:
             # Añadimos un timeout de 10 segundos para que no se quede colgado
             _pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=1, 
-                maxconn=10, 
+                minconn=1,
+                maxconn=10,
                 dsn=DATABASE_URL,
                 connect_timeout=10
             )
@@ -43,7 +43,7 @@ def execute_query(sql, params=(), fetch=False):
     if not conn:
         print("⚠️ No hay conexión disponible para ejecutar la consulta.")
         return [] if fetch else None
-    
+
     try:
         with conn.cursor() as cur:
             cur.execute(sql, params)
@@ -65,7 +65,7 @@ def execute_query(sql, params=(), fetch=False):
 
 def crear_base_datos():
     # Esta función se llama al inicio. Si esto no imprime "Base de datos verificada", nada funciona.
-    sql = "SELECT 1;" 
+    sql = "SELECT 1;"
     res = execute_query(sql, fetch=True)
     if res:
         print("🚀 SERENITY: Conexión con Supabase verificada y lista.")
@@ -112,14 +112,14 @@ def contar_mensajes_usuario(user_id):
 
 def registrar_dependencia(user_id, nivel, reporte):
     sql = """
-        INSERT INTO dependencias (user_id, nivel, reporte, timestamp) 
+        INSERT INTO dependencias (user_id, nivel, reporte, timestamp)
         VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
     """
     execute_query(sql, (user_id, nivel, reporte))
 
 def registrar_perfil_emocional(user_id, analisis):
     sql = """
-        INSERT INTO perfil_emocional (user_id, analisis, timestamp) 
+        INSERT INTO perfil_emocional (user_id, analisis, timestamp)
         VALUES (%s, %s, CURRENT_TIMESTAMP)
     """
     execute_query(sql, (user_id, analisis))

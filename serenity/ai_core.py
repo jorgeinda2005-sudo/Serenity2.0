@@ -2,8 +2,8 @@ import json
 import re
 from groq import Groq
 from openai import OpenAI
-from config import logger, JSON_PATH
-from database import guardar_mensaje, obtener_historial, registrar_alerta
+from .config import logger, JSON_PATH
+from .database import guardar_mensaje, obtener_historial, registrar_alerta
 import os
 from dotenv import load_dotenv
 
@@ -153,15 +153,15 @@ def llamar_openai(mensajes):
 
 async def obtener_respuesta_ia(user_id, mensaje_usuario):
     """Llama a Groq primero, si falla cae a OpenAI automáticamente."""
-    from database import contar_mensajes_usuario, registrar_dependencia, registrar_perfil_emocional
-    
+    from .database import contar_mensajes_usuario, registrar_dependencia, registrar_perfil_emocional
+
     historial_previo = obtener_historial(user_id, limite=10)
-    
+
     # Lógica de evaluación
     num_mensajes = contar_mensajes_usuario(user_id)
     evaluar_dependencia = (num_mensajes + 1) % 15 == 0
     evaluar_perfil = (num_mensajes + 1) % 30 == 0
-    
+
     prompt_adicional = ""
     if evaluar_perfil:
         prompt_adicional = "\n¡AVISO CRÍTICO!: El usuario llegó a 30 mensajes. DEBES redactar un 'perfil_emocional' profundo (mínimo 3 líneas) analizando su evolución psicológica y estado actual."
@@ -220,7 +220,7 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
         if evaluar_dependencia and data.get("dependencia") and data["dependencia"] != "ninguno":
             reporte = data.get("reporte_dependencia", "Sin detalles adicionales.")
             registrar_dependencia(user_id, data["dependencia"], reporte)
-            
+
         # Registrar Perfil Emocional (cada 30 mensajes)
         if evaluar_perfil and data.get("perfil_emocional"):
             registrar_perfil_emocional(user_id, data["perfil_emocional"])

@@ -5,8 +5,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 from datetime import datetime
-from config import (
-    GMAIL_USER, GMAIL_PASS, TWILIO_WHATSAPP_FROM, 
+from .config import (
+    GMAIL_USER, GMAIL_PASS, TWILIO_WHATSAPP_FROM,
     TWILIO_WHATSAPP_TO, twilio_client, logger
 )
 
@@ -17,7 +17,7 @@ def enviar_correo_alerta(destinatario, usuario_info, motivo_riesgo):
         return
 
     archivo_excel = f"alerta_{usuario_info['id']}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-    
+
     # Crear un pequeño reporte con Pandas
     df = pd.DataFrame([usuario_info])
     df.to_excel(archivo_excel, index=False)
