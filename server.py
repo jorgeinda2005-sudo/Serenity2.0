@@ -44,12 +44,18 @@ def _run_bot_loop():
 
 
 # ── Ruta webhook de Telegram dentro de Flask ─────────────────────────────────
-@flask_app.route(f"/webhook/{TOKEN_TELEGRAM}", methods=["POST"])
-def telegram_webhook():
+# FIX: ruta con parámetro variable en lugar de f-string con TOKEN_TELEGRAM,
+# que Pylance marcaba como potencialmente None en tiempo de importación.
+# El token se valida dentro del handler para mayor seguridad.
+@flask_app.route("/webhook/<token>", methods=["POST"])
+def telegram_webhook(token: str):
     """
     Telegram llama a este endpoint cada vez que llega un update.
     Lo procesamos en el event loop del bot (hilo separado) y respondemos OK.
     """
+    if token != TOKEN_TELEGRAM:
+        return "Unauthorized", 403
+
     if _bot_app is None:
         return "Bot no inicializado", 503
 

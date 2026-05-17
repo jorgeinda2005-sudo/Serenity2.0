@@ -46,7 +46,8 @@ def get_conn():
             return None
 
         # Ping rápido: detecta conexiones que Supabase cerró por idle timeout
-        conn.cursor().execute("SELECT 1")
+        with conn.cursor() as cur:       # FIX 1: cursor cerrado correctamente
+            cur.execute("SELECT 1")
         return conn
 
     except Exception:
@@ -64,13 +65,17 @@ def get_conn():
         # Segundo intento con conexión recién creada
         try:
             conn = p.getconn()
-            conn.cursor().execute("SELECT 1")
+            with conn.cursor() as cur:   # FIX 1: idem segundo intento
+                cur.execute("SELECT 1")
             return conn
         except Exception as e2:
             logger.error(f"No se pudo obtener una conexión válida: {e2}")
             if conn is not None:
-                try:
+                try:                     # FIX 2: close y putconn separados
                     conn.close()
+                except Exception:
+                    pass
+                try:
                     p.putconn(conn)
                 except Exception:
                     pass
