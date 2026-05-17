@@ -120,7 +120,7 @@ NO uses "alto" solo porque alguien esté triste o agobiado.
 {{
   "respuesta": "tu mensaje empático y completo",
   "nivel_riesgo": "bajo | medio | alto",
-  "tema": "tema detectado",
+  "tema": "suicidio | depresión | violencia | abuso | otro",
   "razon": "por qué ese nivel de riesgo",
   "dependencia": "bajo | medio | alto | ninguno",
   "reporte_dependencia": "breve resumen de 2 líneas sobre el apego (o vacío si no se evalúa)",
