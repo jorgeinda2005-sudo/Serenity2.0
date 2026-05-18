@@ -300,12 +300,12 @@ def ver_alertas():
 
     if buscar:
         sql += """ AND (
-        u.username       ILIKE %s
-        OR u.nombre_completo ILIKE %s
-        OR CAST(u.user_id AS TEXT) ILIKE %s
-        OR a.razon       ILIKE %s
-    )"""
-    params.extend([f"%{buscar}%", f"%{buscar}%", f"%{buscar}%", f"%{buscar}%"])
+            u.username       ILIKE %s
+            OR u.nombre_completo ILIKE %s
+            OR CAST(u.user_id AS TEXT) ILIKE %s
+            OR a.razon       ILIKE %s
+        )"""
+        params.extend([f"%{buscar}%", f"%{buscar}%", f"%{buscar}%", f"%{buscar}%"])
     if tipo:
         sql += " AND a.tema ILIKE %s"
         params.append(f"%{tipo}%")
