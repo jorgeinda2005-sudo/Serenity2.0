@@ -51,7 +51,7 @@
           <i class="fas fa-key me-1 text-primary"></i> Código Temporal
         </label>
         <input type="password" name="codigo" class="form-control form-control-lg"
-               placeholder="Tu código de acceso" required>
+               placeholder="Tu código de acceso">
         <div class="form-text small">
           <i class="fas fa-question-circle me-1"></i>
           Si no tienes tu código temporal, contacta al administrador del sistema.
@@ -63,7 +63,7 @@
           <i class="fas fa-lock me-1 text-primary"></i> Nueva Contraseña
         </label>
         <input type="password" name="nueva" class="form-control form-control-lg"
-               placeholder="Ej. Serenity2026!" required>
+               placeholder="Ej. Serenity2026!">
       </div>
 
       <div class="mb-4">
@@ -71,10 +71,14 @@
           <i class="fas fa-check-circle me-1 text-primary"></i> Confirmar Contraseña
         </label>
         <input type="password" name="confirmar" class="form-control form-control-lg"
-               placeholder="Repite la contraseña" required>
+               placeholder="Repite la contraseña">
       </div>
 
-      <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+      <button type="submit" name="accion" value="enviar_codigo" class="btn btn-outline-primary btn-lg w-100 mb-2">
+        <i class="fas fa-paper-plane me-2"></i> Enviar código al correo
+      </button>
+
+      <button type="submit" name="accion" value="reset" class="btn btn-primary btn-lg w-100 mb-3">
         <i class="fas fa-save me-2"></i> Actualizar Contraseña
       </button>
     </form>

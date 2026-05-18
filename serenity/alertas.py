@@ -13,8 +13,7 @@ from .config import (
 def enviar_correo_alerta(destinatario, usuario_info, motivo_riesgo):
     """Genera un reporte Excel y lo envía por correo al orientador."""
     if not GMAIL_USER or not GMAIL_PASS:
-        logger.error("No se han configurado las credenciales de Gmail.")
-        return
+        raise RuntimeError("No se han configurado las credenciales de Gmail.")
 
     archivo_excel = f"alerta_{usuario_info['id']}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
 
@@ -48,6 +47,7 @@ def enviar_correo_alerta(destinatario, usuario_info, motivo_riesgo):
         logger.info(f"Correo de alerta enviado a {destinatario}")
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")
+        raise
 
 def enviar_whatsapp_emergencia(mensaje):
     """Envía un mensaje rápido de WhatsApp vía Twilio."""

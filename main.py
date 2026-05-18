@@ -11,7 +11,8 @@ from telegram.ext import (
 from serenity.config import TOKEN_TELEGRAM, TMP_DIR, PDF_DIRECTORIO, logger
 from serenity.database import (
     crear_base_datos, guardar_usuario, completar_registro,
-    usuario_registrado, obtener_datos_usuario
+    usuario_registrado, obtener_datos_usuario, obtener_psicologos_por_facultad,
+    registrar_correo_enviado
 )
 from serenity.ai_core import obtener_respuesta_ia, groq_client
 from serenity.alertas import enviar_correo_alerta, enviar_whatsapp_emergencia
@@ -292,8 +293,13 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
             except Exception as e:
                 logger.error(f"Error enviando WhatsApp: {e}")
             try:
-                enviar_correo_alerta("mduarte@delfin.unacar.mx", usuario_info,
-                                     f"El alumno solicitó apoyo nuevamente. Motivo: {razon}")
+                facultad = usuario_info.get("facultad", "") or context.user_data.get("facultad", "")
+                _notificar_psicologos_por_facultad(
+                    user_id=user_id,
+                    facultad=facultad,
+                    usuario_info=usuario_info,
+                    motivo=f"El alumno solicito apoyo nuevamente. Motivo: {razon}",
+                )
             except Exception as e:
                 logger.error(f"Error enviando correo: {e}")
             context.user_data.clear()
@@ -352,6 +358,46 @@ def limpiar_historial_usuario(user_id):
         release_conn(conn)
 
 
+def _notificar_psicologos_por_facultad(user_id, facultad, usuario_info, motivo):
+    psicologos = obtener_psicologos_por_facultad(facultad)
+    if not psicologos:
+        logger.warning(f"Sin psicologos con correo en facultad: {facultad}")
+        return 0
+
+    enviados = 0
+    asunto = f"ALERTA DE RIESGO - Serenity - Usuario {usuario_info.get('id', user_id)}"
+    for p in psicologos:
+        destinatario = p.get("correo", "").strip()
+        if not destinatario:
+            continue
+        try:
+            enviar_correo_alerta(destinatario, usuario_info, motivo)
+            registrar_correo_enviado(
+                user_id=user_id,
+                psicologo_id=p.get("id"),
+                destinatario=destinatario,
+                facultad=facultad,
+                asunto=asunto,
+                motivo=motivo,
+                estado="enviado",
+                error=None,
+            )
+            enviados += 1
+        except Exception as e:
+            registrar_correo_enviado(
+                user_id=user_id,
+                psicologo_id=p.get("id"),
+                destinatario=destinatario,
+                facultad=facultad,
+                asunto=asunto,
+                motivo=motivo,
+                estado="error",
+                error=str(e)[:500],
+            )
+            logger.error(f"Error enviando correo a {destinatario}: {e}")
+    return enviados
+
+
 async def _guardar_y_notificar(update, context):
     user_id   = update.effective_user.id
     nombre    = context.user_data.get("nombre_completo", "")
@@ -400,9 +446,11 @@ async def _guardar_y_notificar(update, context):
 
     try:
         usuario_info = obtener_datos_usuario(user_id)
-        enviar_correo_alerta(
-            "mduarte@delfin.unacar.mx", usuario_info,
-            f"El alumno solicitó apoyo voluntariamente. Facultad: {facultad}. Motivo: {razon}"
+        _notificar_psicologos_por_facultad(
+            user_id=user_id,
+            facultad=facultad,
+            usuario_info=usuario_info,
+            motivo=f"El alumno solicito apoyo voluntariamente. Facultad: {facultad}. Motivo: {razon}",
         )
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")
@@ -458,9 +506,11 @@ async def _guardar_y_notificar_query(query, context):
 
     try:
         usuario_info = obtener_datos_usuario(user_id)
-        enviar_correo_alerta(
-            "mduarte@delfin.unacar.mx", usuario_info,
-            f"El alumno solicitó apoyo. Facultad: {facultad}. Motivo: {razon}"
+        _notificar_psicologos_por_facultad(
+            user_id=user_id,
+            facultad=facultad,
+            usuario_info=usuario_info,
+            motivo=f"El alumno solicito apoyo. Facultad: {facultad}. Motivo: {razon}",
         )
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")

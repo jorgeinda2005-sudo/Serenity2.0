@@ -130,9 +130,25 @@ def execute_query(sql, params=(), fetch=False):
 def crear_base_datos():
     res = execute_query("SELECT 1;", fetch=True)
     if res is not None:
-        logger.info("🚀 SERENITY: Conexión con Supabase verificada.")
+        logger.info("SERENITY: Conexion con Supabase verificada.")
+        execute_query(
+            """
+            CREATE TABLE IF NOT EXISTS correos_enviados (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT,
+                psicologo_id BIGINT,
+                destinatario TEXT NOT NULL,
+                facultad TEXT,
+                asunto TEXT,
+                motivo TEXT,
+                estado TEXT NOT NULL,
+                error TEXT,
+                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
     else:
-        logger.error("💀 SERENITY: No se pudo verificar la conexión inicial.")
+        logger.error("SERENITY: No se pudo verificar la conexion inicial.")
 
 
 def guardar_usuario(user_id, username, first_name, last_name):
@@ -220,4 +236,31 @@ def registrar_perfil_emocional(user_id, analisis):
     execute_query(
         "INSERT INTO perfil_emocional (user_id, analisis, timestamp) VALUES (%s, %s, CURRENT_TIMESTAMP)",
         (user_id, analisis),
+    )
+
+
+def obtener_psicologos_por_facultad(facultad):
+    res = execute_query(
+        """
+        SELECT p.id, p.nombre, p.correo
+        FROM psicologos p
+        JOIN psicologos_facultades pf ON pf.psicologo_id = p.id
+        WHERE p.activo=TRUE
+          AND COALESCE(NULLIF(p.correo, ''), '') <> ''
+          AND pf.facultad=%s
+        """,
+        (facultad,),
+        fetch=True,
+    )
+    return [{"id": r[0], "nombre": r[1], "correo": r[2]} for r in (res or [])]
+
+
+def registrar_correo_enviado(user_id, psicologo_id, destinatario, facultad, asunto, motivo, estado, error=None):
+    execute_query(
+        """
+        INSERT INTO correos_enviados
+        (user_id, psicologo_id, destinatario, facultad, asunto, motivo, estado, error, timestamp)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        """,
+        (user_id, psicologo_id, destinatario, facultad, asunto, motivo, estado, error),
     )

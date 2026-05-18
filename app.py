@@ -10,6 +10,8 @@ import tempfile
 import os
 import re
 import secrets
+import smtplib
+from email.mime.text import MIMEText
 from datetime import timedelta, datetime
 from functools import wraps
 from dotenv import load_dotenv
@@ -29,6 +31,8 @@ app.config["SESSION_COOKIE_HTTPONLY"]    = True
 app.config["SESSION_COOKIE_SAMESITE"]   = "Lax"
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+GMAIL_USER = os.getenv("GMAIL_USER", "")
+GMAIL_PASS = os.getenv("GMAIL_PASS", "")
 
 _pool = None
 
@@ -112,6 +116,29 @@ def registrar_perfil_emocional(user_id, analisis):
         INSERT INTO perfil_emocional (user_id, analisis, timestamp) 
         VALUES (%s, %s, CURRENT_TIMESTAMP)
     """, (user_id, analisis))
+
+
+def enviar_codigo_recuperacion(destinatario, codigo_temporal):
+    if not GMAIL_USER or not GMAIL_PASS:
+        raise RuntimeError("GMAIL_USER/GMAIL_PASS no configurados")
+
+    msg = MIMEText(
+        "Hola.\n\n"
+        "Recibimos una solicitud de recuperacion de contrasena para Serenity.\n"
+        f"Tu codigo temporal es: {codigo_temporal}\n\n"
+        "Si no solicitaste este cambio, ignora este mensaje."
+    )
+    msg["Subject"] = "Serenity - Codigo de recuperacion"
+    msg["From"] = GMAIL_USER
+    msg["To"] = destinatario
+
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    try:
+        server.starttls()
+        server.login(GMAIL_USER, GMAIL_PASS)
+        server.send_message(msg)
+    finally:
+        server.quit()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -660,7 +687,7 @@ def agregar_psicologo():
     try:
         execute(
             "INSERT INTO psicologos (nombre, usuario, activo, rol, primer_acceso, codigo_temporal) "
-            "VALUES (%s, TRUE, 'psicologo', TRUE, %s)",
+            "VALUES (%s, %s, TRUE, 'psicologo', TRUE, %s)",
             (nombre, usuario, codigo)
         )
     except psycopg2.IntegrityError:
@@ -678,43 +705,59 @@ def agregar_psicologo():
 def recuperar():
     if request.method == "GET":
         return render_template("recuperar.html")
-    
-    usuario = request.form.get("usuario", "").strip()
-    codigo_ingresado = request.form.get("codigo", "").strip()
-    nueva = request.form.get("nueva", "")
-    confirmar = request.form.get("confirmar", "")
 
-    # 1. Buscar al usuario y su código temporal
+    usuario = request.form.get("usuario", "").strip()
+    accion = request.form.get("accion", "reset")
+
+    if not usuario:
+        return render_template("recuperar.html", error="Debes ingresar tu usuario.")
+
     row = query(
-        "SELECT id, codigo_temporal FROM psicologos WHERE usuario=%s AND activo=TRUE",
+        "SELECT id, codigo_temporal, correo FROM psicologos WHERE usuario=%s AND activo=TRUE",
         (usuario,)
     )
     if not row:
         return render_template("recuperar.html", error="Usuario no encontrado o inactivo.")
-    
-    user_id, codigo_real = row[0]
 
-    # 2. Verificar que el código temporal coincida
+    user_id, codigo_real, correo_destino = row[0]
+
+    if accion == "enviar_codigo":
+        if not correo_destino:
+            return render_template(
+                "recuperar.html",
+                error="Este usuario no tiene correo registrado. Contacta al administrador."
+            )
+        try:
+            enviar_codigo_recuperacion(correo_destino, codigo_real)
+            return render_template(
+                "recuperar.html",
+                error="Codigo enviado al correo registrado del psicologo."
+            )
+        except Exception as e:
+            return render_template("recuperar.html", error=f"No se pudo enviar el correo: {e}")
+
+    codigo_ingresado = request.form.get("codigo", "").strip()
+    nueva = request.form.get("nueva", "")
+    confirmar = request.form.get("confirmar", "")
+
     if not codigo_real or codigo_ingresado != codigo_real:
-        return render_template("recuperar.html", error="El código temporal es incorrecto.")
+        return render_template("recuperar.html", error="El codigo temporal es incorrecto.")
 
-    # 3. Validar que las contraseñas nuevas coincidan
     if nueva != confirmar:
-        return render_template("recuperar.html", error="Las contraseñas no coinciden.")
+        return render_template("recuperar.html", error="Las contrasenas no coinciden.")
 
-    # 4. Validar seguridad de la nueva contraseña
     error_pwd = validar_password(nueva)
     if error_pwd:
         return render_template("recuperar.html", error=error_pwd)
 
-    # 5. Guardar la nueva contraseña
     hashed = generate_password_hash(nueva).decode("utf-8")
     execute(
         "UPDATE psicologos SET password_hash=%s, primer_acceso=FALSE WHERE id=%s",
         (hashed, user_id)
     )
 
-    return render_template("login.html", error="✅ Contraseña actualizada. Ya puedes iniciar sesión.")
+    return render_template("login.html", error="Contrasena actualizada. Ya puedes iniciar sesion.")
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
