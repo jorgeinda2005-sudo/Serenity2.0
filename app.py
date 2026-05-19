@@ -9,6 +9,7 @@ import psycopg2.pool
 import tempfile
 import os
 import re
+import json
 import secrets
 import smtplib
 from email.mime.text import MIMEText
@@ -116,6 +117,36 @@ def registrar_perfil_emocional(user_id, analisis):
         INSERT INTO perfil_emocional (user_id, analisis, timestamp) 
         VALUES (%s, %s, CURRENT_TIMESTAMP)
     """, (user_id, analisis))
+
+
+def backfill_contexto_alerta(alerta_id, user_id, alerta_ts):
+    msgs = query(
+        """
+        SELECT content, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
+        FROM conversaciones
+        WHERE user_id=%s
+          AND role='user'
+          AND timestamp <= %s
+        ORDER BY timestamp DESC
+        LIMIT 6
+        """,
+        (user_id, alerta_ts),
+    )
+    if not msgs:
+        return
+
+    detonante = msgs[0][0]
+    previos = [{"mensaje": r[0], "fecha": r[1]} for r in msgs[1:]]
+    execute(
+        """
+        INSERT INTO alertas_contexto (alerta_id, user_id, mensaje_detonante, mensajes_previos_json, timestamp)
+        VALUES (%s, %s, %s, %s::jsonb, CURRENT_TIMESTAMP)
+        ON CONFLICT (alerta_id) DO UPDATE
+        SET mensaje_detonante=EXCLUDED.mensaje_detonante,
+            mensajes_previos_json=EXCLUDED.mensajes_previos_json
+        """,
+        (alerta_id, user_id, detonante, json.dumps(previos, ensure_ascii=False)),
+    )
 
 
 def enviar_codigo_recuperacion(destinatario, codigo_temporal):
@@ -472,6 +503,7 @@ def perfil_usuario(id):
     alertas_raw = query("""
         SELECT a.id, a.tema, a.nivel_riesgo,
                TO_CHAR(a.timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS fecha,
+               a.timestamp,
                a.razon,
                ac.mensaje_detonante,
                ac.mensajes_previos_json
@@ -483,20 +515,46 @@ def perfil_usuario(id):
 
     alertas = []
     for row in alertas_raw:
-        previos = row[6] if row[6] else []
+        alerta_id = row[0]
+        fecha = row[3]
+        alerta_ts = row[4]
+        razon = row[5]
+        detonante = row[6]
+        previos = row[7] if row[7] else []
+
         if isinstance(previos, str):
             try:
-                import json as _json
-                previos = _json.loads(previos)
+                previos = json.loads(previos)
             except Exception:
                 previos = []
+
+        if (not detonante or detonante.strip() == "") or not previos:
+            backfill_contexto_alerta(alerta_id, id, alerta_ts)
+            ctx = query(
+                """
+                SELECT mensaje_detonante, mensajes_previos_json
+                FROM alertas_contexto
+                WHERE alerta_id=%s
+                LIMIT 1
+                """,
+                (alerta_id,),
+            )
+            if ctx:
+                detonante = ctx[0][0] or detonante
+                previos = ctx[0][1] or previos
+                if isinstance(previos, str):
+                    try:
+                        previos = json.loads(previos)
+                    except Exception:
+                        previos = []
+
         alertas.append({
-            "id": row[0],
+            "id": alerta_id,
             "tema": row[1],
             "nivel": row[2],
-            "fecha": row[3],
-            "razon": row[4],
-            "detonante": row[5] or "No registrado",
+            "fecha": fecha,
+            "razon": razon,
+            "detonante": detonante or "No hay mensaje detonante",
             "previos": previos,
         })
 
