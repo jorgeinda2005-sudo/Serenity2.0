@@ -469,10 +469,36 @@ def perfil_usuario(id):
             chats.append((temp_user[0], content, temp_user[1]))
             temp_user = None
 
-    alertas = query("""
-        SELECT tema, nivel_riesgo, timestamp, razon
-        FROM alertas WHERE user_id=%s ORDER BY timestamp DESC
+    alertas_raw = query("""
+        SELECT a.id, a.tema, a.nivel_riesgo,
+               TO_CHAR(a.timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS fecha,
+               a.razon,
+               ac.mensaje_detonante,
+               ac.mensajes_previos_json
+        FROM alertas a
+        LEFT JOIN alertas_contexto ac ON ac.alerta_id = a.id
+        WHERE a.user_id=%s
+        ORDER BY a.timestamp DESC
     """, (id,))
+
+    alertas = []
+    for row in alertas_raw:
+        previos = row[6] if row[6] else []
+        if isinstance(previos, str):
+            try:
+                import json as _json
+                previos = _json.loads(previos)
+            except Exception:
+                previos = []
+        alertas.append({
+            "id": row[0],
+            "tema": row[1],
+            "nivel": row[2],
+            "fecha": row[3],
+            "razon": row[4],
+            "detonante": row[5] or "No registrado",
+            "previos": previos,
+        })
 
     perfil = query("""
         SELECT analisis, timestamp FROM perfil_emocional

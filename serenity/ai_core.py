@@ -3,7 +3,7 @@ import re
 from groq import Groq
 from openai import OpenAI
 from .config import logger, JSON_PATH
-from .database import guardar_mensaje, obtener_historial, registrar_alerta
+from .database import guardar_mensaje, obtener_historial, registrar_alerta, registrar_contexto_alerta
 import os
 from dotenv import load_dotenv
 
@@ -214,7 +214,9 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
 
         # Registrar alerta si es necesario
         if data["nivel_riesgo"] in ["medio", "alto"]:
-            registrar_alerta(user_id, data["nivel_riesgo"], data["tema"], data["razon"])
+            alerta_id = registrar_alerta(user_id, data["nivel_riesgo"], data["tema"], data["razon"])
+            if alerta_id:
+                registrar_contexto_alerta(alerta_id, user_id)
 
         # Registrar dependencia si se evaluó y detectó
         if evaluar_dependencia and data.get("dependencia") and data["dependencia"] != "ninguno":

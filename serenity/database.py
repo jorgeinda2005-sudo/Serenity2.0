@@ -1,4 +1,5 @@
 import os
+import json
 import psycopg2
 import psycopg2.pool
 from .config import logger
@@ -147,6 +148,18 @@ def crear_base_datos():
             );
             """
         )
+        execute_query(
+            """
+            CREATE TABLE IF NOT EXISTS alertas_contexto (
+                id BIGSERIAL PRIMARY KEY,
+                alerta_id BIGINT UNIQUE NOT NULL,
+                user_id BIGINT NOT NULL,
+                mensaje_detonante TEXT,
+                mensajes_previos_json JSONB,
+                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
     else:
         logger.error("SERENITY: No se pudo verificar la conexion inicial.")
 
@@ -210,10 +223,12 @@ def obtener_historial(user_id, limite=10):
 
 
 def registrar_alerta(user_id, nivel_riesgo, tema, razon):
-    execute_query(
-        "INSERT INTO alertas (user_id, nivel_riesgo, tema, razon) VALUES (%s, %s, %s, %s)",
+    res = execute_query(
+        "INSERT INTO alertas (user_id, nivel_riesgo, tema, razon) VALUES (%s, %s, %s, %s) RETURNING id",
         (user_id, nivel_riesgo, tema, razon),
+        fetch=True,
     )
+    return res[0][0] if res else None
 
 
 def contar_mensajes_usuario(user_id):
@@ -263,4 +278,34 @@ def registrar_correo_enviado(user_id, psicologo_id, destinatario, facultad, asun
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         """,
         (user_id, psicologo_id, destinatario, facultad, asunto, motivo, estado, error),
+    )
+
+
+def registrar_contexto_alerta(alerta_id, user_id):
+    res = execute_query(
+        """
+        SELECT content, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
+        FROM conversaciones
+        WHERE user_id=%s AND role='user'
+        ORDER BY timestamp DESC
+        LIMIT 6
+        """,
+        (user_id,),
+        fetch=True,
+    )
+    if not res:
+        return
+
+    detonante = res[0][0]
+    previos = [{"mensaje": r[0], "fecha": r[1]} for r in res[1:]]
+
+    execute_query(
+        """
+        INSERT INTO alertas_contexto (alerta_id, user_id, mensaje_detonante, mensajes_previos_json, timestamp)
+        VALUES (%s, %s, %s, %s::jsonb, CURRENT_TIMESTAMP)
+        ON CONFLICT (alerta_id) DO UPDATE
+        SET mensaje_detonante=EXCLUDED.mensaje_detonante,
+            mensajes_previos_json=EXCLUDED.mensajes_previos_json
+        """,
+        (alerta_id, user_id, detonante, json.dumps(previos, ensure_ascii=False)),
     )
