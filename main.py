@@ -359,43 +359,34 @@ def limpiar_historial_usuario(user_id):
 
 
 def _notificar_psicologos_por_facultad(user_id, facultad, usuario_info, motivo):
-    psicologos = obtener_psicologos_por_facultad(facultad)
-    if not psicologos:
-        logger.warning(f"Sin psicologos con correo en facultad: {facultad}")
-        return 0
-
-    enviados = 0
+    destinatario = "josemoscosotareas2017@gmail.com"
     asunto = f"ALERTA DE RIESGO - Serenity - Usuario {usuario_info.get('id', user_id)}"
-    for p in psicologos:
-        destinatario = p.get("correo", "").strip()
-        if not destinatario:
-            continue
-        try:
-            enviar_correo_alerta(destinatario, usuario_info, motivo)
-            registrar_correo_enviado(
-                user_id=user_id,
-                psicologo_id=p.get("id"),
-                destinatario=destinatario,
-                facultad=facultad,
-                asunto=asunto,
-                motivo=motivo,
-                estado="enviado",
-                error=None,
-            )
-            enviados += 1
-        except Exception as e:
-            registrar_correo_enviado(
-                user_id=user_id,
-                psicologo_id=p.get("id"),
-                destinatario=destinatario,
-                facultad=facultad,
-                asunto=asunto,
-                motivo=motivo,
-                estado="error",
-                error=str(e)[:500],
-            )
-            logger.error(f"Error enviando correo a {destinatario}: {e}")
-    return enviados
+    try:
+        enviar_correo_alerta(destinatario, usuario_info, motivo)
+        registrar_correo_enviado(
+            user_id=user_id,
+            psicologo_id=None,
+            destinatario=destinatario,
+            facultad=facultad,
+            asunto=asunto,
+            motivo=motivo,
+            estado="enviado",
+            error=None,
+        )
+        return 1
+    except Exception as e:
+        registrar_correo_enviado(
+            user_id=user_id,
+            psicologo_id=None,
+            destinatario=destinatario,
+            facultad=facultad,
+            asunto=asunto,
+            motivo=motivo,
+            estado="error",
+            error=str(e)[:500],
+        )
+        logger.error(f"Error enviando correo a {destinatario}: {e}")
+        return 0
 
 
 async def _guardar_y_notificar(update, context):
