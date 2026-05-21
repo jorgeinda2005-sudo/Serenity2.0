@@ -378,7 +378,7 @@ def ver_alertas():
     fecha_fin    = request.args.get("fin", "")
 
     sql = f"""
-        SELECT a.id,
+        SELECT ROW_NUMBER() OVER (ORDER BY a.timestamp DESC) AS folio,
                a.user_id,
                COALESCE(NULLIF(u.nombre_completo,''), u.username, CAST(u.user_id AS TEXT)) AS alumno,
                a.tema, a.razon, a.nivel_riesgo,
