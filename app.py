@@ -122,7 +122,7 @@ def registrar_perfil_emocional(user_id, analisis):
 def backfill_contexto_alerta(alerta_id, user_id, alerta_ts):
     msgs = query(
         """
-        SELECT id, content, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
+        SELECT id, content, timestamp, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
         FROM conversaciones
         WHERE user_id=%s
           AND role='user'
@@ -145,15 +145,29 @@ def backfill_contexto_alerta(alerta_id, user_id, alerta_ts):
             FROM conversaciones
             WHERE user_id=%s
               AND role='assistant'
-              AND id > %s
-            ORDER BY id ASC
+              AND timestamp >= %s
+              AND timestamp <= %s
+            ORDER BY timestamp ASC, id ASC
             LIMIT 1
             """,
-            (user_id, r[0]),
+            (user_id, r[2], alerta_ts),
         )
+        if not ans:
+            ans = query(
+                """
+                SELECT content
+                FROM conversaciones
+                WHERE user_id=%s
+                  AND role='assistant'
+                  AND id > %s
+                ORDER BY id ASC
+                LIMIT 1
+                """,
+                (user_id, r[0]),
+            )
         previos.append({
             "mensaje": r[1],
-            "fecha": r[2],
+            "fecha": r[3],
             "respuesta_serenity": ans[0][0] if ans else "",
         })
     execute(
@@ -547,7 +561,14 @@ def perfil_usuario(id):
             except Exception:
                 previos = []
 
-        if (not detonante or detonante.strip() == "") or not previos:
+        necesita_backfill = (not detonante or detonante.strip() == "") or not previos
+        if not necesita_backfill and isinstance(previos, list):
+            for m in previos:
+                if isinstance(m, dict) and "respuesta_serenity" not in m:
+                    necesita_backfill = True
+                    break
+
+        if necesita_backfill:
             backfill_contexto_alerta(alerta_id, id, alerta_ts)
             ctx = query(
                 """
@@ -590,6 +611,7 @@ def perfil_usuario(id):
     return render_template(
         "perfil_usuario.html",
         nombre=user_name,
+        user_id=id,
         datos_personales=datos_personales,
         chats=chats,
         alertas=alertas,
