@@ -564,7 +564,7 @@ def perfil_usuario(id):
         necesita_backfill = (not detonante or detonante.strip() == "") or not previos
         if not necesita_backfill and isinstance(previos, list):
             for m in previos:
-                if isinstance(m, dict) and "respuesta_serenity" not in m:
+                if isinstance(m, dict) and ("respuesta_serenity" not in m or not str(m.get("respuesta_serenity", "")).strip()):
                     necesita_backfill = True
                     break
 
