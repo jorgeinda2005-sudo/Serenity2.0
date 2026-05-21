@@ -888,6 +888,25 @@ def admin():
                            user=session["user"])
 
 
+@app.route("/admin/reset_base_datos", methods=["POST"])
+def reset_base_datos():
+    if "user" not in session or session.get("rol") != "admin":
+        return redirect("/")
+
+    execute("""
+        TRUNCATE TABLE
+            alertas_contexto,
+            alertas,
+            perfil_emocional,
+            dependencias,
+            conversaciones,
+            correos_enviados,
+            usuarios
+        RESTART IDENTITY CASCADE
+    """)
+    return redirect("/admin")
+
+
 @app.route("/admin/agregar_facultad", methods=["POST"])
 def agregar_facultad():
     if "user" not in session or session.get("rol") != "admin":

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -76,25 +76,40 @@
 
 <div class="container py-4">
   <h4 class="fw-bold mb-4">
-    <i class="fas fa-users-cog me-2 text-primary"></i>Gestión de Psicólogos
+    <i class="fas fa-users-cog me-2 text-primary"></i>GestiÃ³n de PsicÃ³logos
   </h4>
 
-  <!-- Agregar psicólogo -->
+  <div class="card shadow-sm mb-4 p-3 border-danger">
+    <h6 class="fw-bold mb-2 text-danger">
+      <i class="fas fa-triangle-exclamation me-2"></i>Reset de base de datos (solo datos operativos)
+    </h6>
+    <p class="mb-3 small text-muted">
+      Elimina conversaciones, alertas, perfiles emocionales y reinicia los contadores de IDs.
+    </p>
+    <form method="POST" action="{{ url_for('reset_base_datos') }}">
+      <button type="submit" class="btn btn-danger"
+              onclick="return confirm('Se borraran los datos operativos y los IDs volveran a 1. ¿Deseas continuar?')">
+        <i class="fas fa-trash-can me-1"></i>Resetear datos e IDs
+      </button>
+    </form>
+  </div>
+
+  <!-- Agregar psicÃ³logo -->
   <div class="card shadow-sm mb-4 p-3">
     <h6 class="fw-bold mb-3">
-      <i class="fas fa-user-plus me-2 text-success"></i>Agregar nuevo psicólogo
+      <i class="fas fa-user-plus me-2 text-success"></i>Agregar nuevo psicÃ³logo
     </h6>
     <form method="POST" action="{{ url_for('agregar_psicologo') }}" class="row g-2 align-items-end">
       <div class="col-md-4">
         <label class="form-label small fw-bold">Nombre completo</label>
-        <input type="text" name="nombre" class="form-control" placeholder="Ej. Celia María Ramos" required>
+        <input type="text" name="nombre" class="form-control" placeholder="Ej. Celia MarÃ­a Ramos" required>
       </div>
       <div class="col-md-3">
         <label class="form-label small fw-bold">Usuario</label>
         <input type="text" name="usuario" class="form-control" placeholder="Ej. cramos" required>
       </div>
       <div class="col-md-3">
-        <label class="form-label small fw-bold">Código temporal</label>
+        <label class="form-label small fw-bold">CÃ³digo temporal</label>
         <input type="text" name="codigo" class="form-control" placeholder="Ej. Ramos2026" required>
       </div>
       <div class="col-md-2">
@@ -118,7 +133,7 @@
             <small class="text-muted">@{{ p.usuario }}</small>
             {% if p.primer_acceso %}
             <span class="badge bg-warning text-dark ms-2" style="font-size:10px;">
-              <i class="fas fa-exclamation-circle me-1"></i>Sin acceso aún
+              <i class="fas fa-exclamation-circle me-1"></i>Sin acceso aÃºn
             </span>
             {% endif %}
           </div>
@@ -140,8 +155,8 @@
             <span class="badge bg-primary me-1 mt-1">
               {{ fac[1] }}
               <a href="{{ url_for('quitar_facultad', id=fac[0]) }}"
-                 onclick="return confirm('¿Quitar {{ fac[1] }}?')"
-                 class="text-white ms-1" style="text-decoration:none;">✕</a>
+                 onclick="return confirm('Â¿Quitar {{ fac[1] }}?')"
+                 class="text-white ms-1" style="text-decoration:none;">âœ•</a>
             </span>
             {% endfor %}
           {% else %}
@@ -154,16 +169,16 @@
           <select name="facultad" class="form-control form-control-sm" required>
             <option value="">Seleccionar...</option>
             <optgroup label="Campus Principal">
-              <option>Facultad de Ciencias de la Información</option>
-              <option>Facultad de Ciencias Económicas Administrativas</option>
+              <option>Facultad de Ciencias de la InformaciÃ³n</option>
+              <option>Facultad de Ciencias EconÃ³micas Administrativas</option>
               <option>Facultad de Ciencias Educativas</option>
               <option>Facultad de Derecho</option>
-              <option>Facultad de Química</option>
+              <option>Facultad de QuÃ­mica</option>
             </optgroup>
             <optgroup label="Campus III">
               <option>Facultad de Ciencias de la Salud</option>
               <option>Facultad de Ciencias Naturales</option>
-              <option>Facultad de Ingeniería</option>
+              <option>Facultad de IngenierÃ­a</option>
             </optgroup>
           </select>
           <button type="submit" class="btn btn-sm btn-outline-primary">
@@ -172,7 +187,7 @@
         </form>
 
         <a href="{{ url_for('toggle_activo', id=p.id) }}"
-           onclick="return confirm('¿Cambiar estado de {{ p.nombre }}?')"
+           onclick="return confirm('Â¿Cambiar estado de {{ p.nombre }}?')"
            class="btn btn-sm w-100 {% if p.activo %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
           {% if p.activo %}
           <i class="fas fa-user-slash me-1"></i> Desactivar

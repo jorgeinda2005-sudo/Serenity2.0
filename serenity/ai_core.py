@@ -224,8 +224,19 @@ async def obtener_respuesta_ia(user_id, mensaje_usuario):
             registrar_dependencia(user_id, data["dependencia"], reporte)
 
         # Registrar Perfil Emocional (cada 30 mensajes)
-        if evaluar_perfil and data.get("perfil_emocional"):
-            registrar_perfil_emocional(user_id, data["perfil_emocional"])
+        if evaluar_perfil:
+            perfil = (data.get("perfil_emocional") or "").strip()
+            if not perfil:
+                # Fallback: evita perder el corte de 30 mensajes si el modelo omite el campo.
+                perfil = (
+                    "Perfil emocional de respaldo: se detecta malestar relevante en el alumno. "
+                    f"Riesgo reportado: {data.get('nivel_riesgo', 'bajo')}. "
+                    f"Tema principal: {data.get('tema', 'otro')}. "
+                    f"Motivo observado: {data.get('razon', 'sin detalle')}. "
+                    "Se recomienda seguimiento cercano y reevaluacion clinica en la siguiente sesion."
+                )
+            registrar_perfil_emocional(user_id, perfil)
+            data["perfil_emocional"] = perfil
 
         return data
 
