@@ -284,7 +284,7 @@ def registrar_correo_enviado(user_id, psicologo_id, destinatario, facultad, asun
 def registrar_contexto_alerta(alerta_id, user_id):
     res = execute_query(
         """
-        SELECT content, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
+        SELECT id, content, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
         FROM conversaciones
         WHERE user_id=%s AND role='user'
         ORDER BY timestamp DESC
@@ -296,8 +296,31 @@ def registrar_contexto_alerta(alerta_id, user_id):
     if not res:
         return
 
-    detonante = res[0][0]
-    previos = [{"mensaje": r[0], "fecha": r[1]} for r in res[1:]]
+    detonante = res[0][1]
+
+    def _respuesta_serenity(user_msg_id):
+        ans = execute_query(
+            """
+            SELECT content
+            FROM conversaciones
+            WHERE user_id=%s
+              AND role='assistant'
+              AND id > %s
+            ORDER BY id ASC
+            LIMIT 1
+            """,
+            (user_id, user_msg_id),
+            fetch=True,
+        )
+        return ans[0][0] if ans else ""
+
+    previos = []
+    for r in res[1:]:
+        previos.append({
+            "mensaje": r[1],
+            "fecha": r[2],
+            "respuesta_serenity": _respuesta_serenity(r[0]),
+        })
 
     execute_query(
         """

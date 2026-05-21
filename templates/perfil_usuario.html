@@ -253,7 +253,8 @@
     prevContainer.innerHTML = previos.map(function (m) {
       const fechaMsg = (m && m.fecha) ? m.fecha : "";
       const textoMsg = (m && m.mensaje) ? m.mensaje : "";
-      return '<div class="border rounded p-2 mb-2 bg-light"><div class="small text-muted mb-1">' + fechaMsg + '</div><div>' + textoMsg + '</div></div>';
+      const respSerenity = (m && m.respuesta_serenity) ? m.respuesta_serenity : "Sin respuesta registrada de Serenity.";
+      return '<div class="border rounded p-2 mb-2 bg-light"><div class="small text-muted mb-1">' + fechaMsg + '</div><div><b>Usuario:</b> ' + textoMsg + '</div><div class="mt-1"><b>Serenity:</b> ' + respSerenity + '</div></div>';
     }).join("");
   });
 </script>

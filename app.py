@@ -122,7 +122,7 @@ def registrar_perfil_emocional(user_id, analisis):
 def backfill_contexto_alerta(alerta_id, user_id, alerta_ts):
     msgs = query(
         """
-        SELECT content, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
+        SELECT id, content, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
         FROM conversaciones
         WHERE user_id=%s
           AND role='user'
@@ -135,8 +135,27 @@ def backfill_contexto_alerta(alerta_id, user_id, alerta_ts):
     if not msgs:
         return
 
-    detonante = msgs[0][0]
-    previos = [{"mensaje": r[0], "fecha": r[1]} for r in msgs[1:]]
+    detonante = msgs[0][1]
+
+    previos = []
+    for r in msgs[1:]:
+        ans = query(
+            """
+            SELECT content
+            FROM conversaciones
+            WHERE user_id=%s
+              AND role='assistant'
+              AND id > %s
+            ORDER BY id ASC
+            LIMIT 1
+            """,
+            (user_id, r[0]),
+        )
+        previos.append({
+            "mensaje": r[1],
+            "fecha": r[2],
+            "respuesta_serenity": ans[0][0] if ans else "",
+        })
     execute(
         """
         INSERT INTO alertas_contexto (alerta_id, user_id, mensaje_detonante, mensajes_previos_json, timestamp)
@@ -620,18 +639,12 @@ def reporte_pdf(id):
     """, (id,))
 
     mensajes = query("""
-        SELECT role, content FROM conversaciones
-        WHERE user_id=%s ORDER BY id DESC LIMIT 30
+        SELECT role, content,
+               TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
+        FROM conversaciones
+        WHERE user_id=%s
+        ORDER BY id ASC
     """, (id,))
-
-    chats = []
-    temp_user = None
-    for role, content in reversed(mensajes):
-        if role == "user":
-            temp_user = content
-        elif role == "assistant" and temp_user:
-            chats.append((temp_user, content))
-            temp_user = None
 
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     c    = canvas.Canvas(temp.name, pagesize=A4)
@@ -677,18 +690,37 @@ def reporte_pdf(id):
         y -= 20
 
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_left, y, "Resumen Conversacional")
+    c.drawString(margin_left, y, "Conversacion completa")
     y -= 15
-    for u_msg, b_msg in chats:
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(margin_left, y, f"Usuario: {u_msg[:100]}")
-        y -= 11
-        c.setFont("Helvetica", 9)
-        c.drawString(margin_left + 10, y, f"Serenity: {b_msg[:100]}")
-        y -= 14
-        if y < 2 * cm:
-            c.showPage()
-            y = margin_top
+    if mensajes:
+        for role, content, ts in mensajes:
+            if y < 3 * cm:
+                c.showPage()
+                y = margin_top
+            etiqueta = "Usuario" if role == "user" else "Serenity"
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(margin_left, y, f"[{ts}] {etiqueta}:")
+            y -= 11
+
+            c.setFont("Helvetica", 9)
+            texto = (content or "").replace("\n", " ").strip()
+            if not texto:
+                texto = "(sin contenido)"
+
+            max_chars = 110
+            while texto:
+                linea = texto[:max_chars]
+                texto = texto[max_chars:]
+                c.drawString(margin_left + 10, y, linea)
+                y -= 11
+                if y < 2.5 * cm and texto:
+                    c.showPage()
+                    y = margin_top
+                    c.setFont("Helvetica", 9)
+            y -= 6
+    else:
+        c.setFont("Helvetica", 10)
+        c.drawString(margin_left, y, "Sin conversacion registrada.")
 
     c.save()
     try:
