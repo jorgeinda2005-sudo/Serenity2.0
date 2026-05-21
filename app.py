@@ -650,99 +650,202 @@ def reporte_pdf(id):
         return "⚠ Usuario no encontrado"
     user_name = usuario[0][0]
 
+    datos_personales = query(
+        """
+        SELECT nombre_completo, matricula, correo, telefono, facultad
+        FROM usuarios WHERE user_id=%s
+        """,
+        (id,),
+    )
+    datos_personales = datos_personales[0] if datos_personales else None
+
     perfil = query("""
-        SELECT analisis, timestamp FROM perfil_emocional
+        SELECT analisis, TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI')
+        FROM perfil_emocional
         WHERE user_id=%s ORDER BY timestamp DESC LIMIT 1
     """, (id,))
 
     alertas = query("""
-        SELECT tema, nivel_riesgo, timestamp, razon
+        SELECT id, tema, nivel_riesgo,
+               TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS fecha,
+               razon, timestamp
         FROM alertas WHERE user_id=%s ORDER BY timestamp DESC
     """, (id,))
 
     mensajes = query("""
         SELECT role, content,
-               TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts
+               TO_CHAR(timestamp AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') AS ts,
+               timestamp
         FROM conversaciones
         WHERE user_id=%s
         ORDER BY id ASC
     """, (id,))
 
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    c    = canvas.Canvas(temp.name, pagesize=A4)
-
+    c = canvas.Canvas(temp.name, pagesize=A4)
     margin_left = 2 * cm
-    margin_top  = 28 * cm
-    width, _    = A4
-    y           = margin_top
+    margin_top = 28 * cm
+    width, _ = A4
+    y = margin_top
 
+    def ensure_space(lines=1):
+        nonlocal y
+        need = lines * 12
+        if y - need < 2 * cm:
+            c.showPage()
+            y = margin_top
+
+    def draw_wrapped(text, font="Helvetica", size=10, indent=0, max_chars=105):
+        nonlocal y
+        text = (text or "").replace("\n", " ").strip() or "(sin contenido)"
+        c.setFont(font, size)
+        while text:
+            ensure_space(1)
+            line = text[:max_chars]
+            text = text[max_chars:]
+            c.drawString(margin_left + indent, y, line)
+            y -= 12
+
+    # Header
     c.setFont("Helvetica-Bold", 14)
-    c.drawString(margin_left, y, "Reporte Psicológico - Serenity")
+    c.drawString(margin_left, y, "Reporte Psicologico Evolutivo por Sesiones - Serenity")
     y -= 14
     c.line(margin_left, y, width - margin_left, y)
-    y -= 20
+    y -= 18
 
-    c.setFont("Helvetica", 11)
-    c.drawString(margin_left, y, f"Usuario evaluado: {user_name}")
-    y -= 25
-
-    if perfil:
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(margin_left, y, "Perfil Emocional")
-        y -= 15
-        c.setFont("Helvetica", 10)
-        c.drawString(margin_left, y, str(perfil[0][0])[:120])
-        y -= 20
-
+    # 1) Datos del alumno
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_left, y, "Alertas Detectadas")
-    y -= 15
+    c.drawString(margin_left, y, "1. Datos del alumno")
+    y -= 14
     c.setFont("Helvetica", 10)
-    if alertas:
-        for a in alertas:
-            c.drawString(margin_left, y, f"- {a[0]} (Nivel: {a[1]})  {a[2]}")
-            y -= 12
-            c.drawString(margin_left + 10, y, f"Razón: {a[3]}")
-            y -= 18
-            if y < 2 * cm:
-                c.showPage()
-                y = margin_top
+    if datos_personales:
+        c.drawString(margin_left, y, f"Nombre: {datos_personales[0] or '-'}"); y -= 12
+        c.drawString(margin_left, y, f"Matricula: {datos_personales[1] or '-'}"); y -= 12
+        c.drawString(margin_left, y, f"Correo: {datos_personales[2] or '-'}"); y -= 12
+        c.drawString(margin_left, y, f"Telefono: {datos_personales[3] or '-'}"); y -= 12
+        c.drawString(margin_left, y, f"Facultad: {datos_personales[4] or '-'}"); y -= 14
     else:
-        c.drawString(margin_left, y, "Sin alertas registradas.")
-        y -= 20
+        c.drawString(margin_left, y, "Sin datos personales registrados."); y -= 14
 
+    # 2) Linea de tiempo de interacciones clave
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_left, y, "Conversacion completa")
-    y -= 15
-    if mensajes:
-        for role, content, ts in mensajes:
-            if y < 3 * cm:
-                c.showPage()
-                y = margin_top
-            etiqueta = "Usuario" if role == "user" else "Serenity"
-            c.setFont("Helvetica-Bold", 9)
-            c.drawString(margin_left, y, f"[{ts}] {etiqueta}:")
-            y -= 11
-
-            c.setFont("Helvetica", 9)
-            texto = (content or "").replace("\n", " ").strip()
-            if not texto:
-                texto = "(sin contenido)"
-
-            max_chars = 110
-            while texto:
-                linea = texto[:max_chars]
-                texto = texto[max_chars:]
-                c.drawString(margin_left + 10, y, linea)
-                y -= 11
-                if y < 2.5 * cm and texto:
-                    c.showPage()
-                    y = margin_top
-                    c.setFont("Helvetica", 9)
-            y -= 6
+    c.drawString(margin_left, y, "2. Linea de tiempo de interacciones clave")
+    y -= 14
+    claves = [m for m in mensajes if m[0] == "user"][-12:]
+    if claves:
+        for _, content, ts, _ in claves:
+            draw_wrapped(f"[{ts}] {content}", size=9)
     else:
-        c.setFont("Helvetica", 10)
-        c.drawString(margin_left, y, "Sin conversacion registrada.")
+        draw_wrapped("Sin interacciones registradas.", size=9)
+    y -= 6
+
+    # 3) Evolucion emocional
+    c.setFont("Helvetica-Bold", 12)
+    ensure_space(2)
+    c.drawString(margin_left, y, "3. Evolucion emocional (inicio -> actual)")
+    y -= 14
+    if mensajes:
+        primer_user = next((m[1] for m in mensajes if m[0] == "user"), "")
+        ultimo_user = next((m[1] for m in reversed(mensajes) if m[0] == "user"), "")
+        draw_wrapped(f"Inicio: {primer_user}", size=9)
+        draw_wrapped(f"Actual: {ultimo_user}", size=9)
+    else:
+        draw_wrapped("No hay suficientes datos para evaluar evolucion.", size=9)
+    if perfil:
+        draw_wrapped(f"Perfil emocional mas reciente ({perfil[0][1]}): {perfil[0][0]}", size=9)
+    y -= 6
+
+    # 4) Alertas criticas con detonantes
+    c.setFont("Helvetica-Bold", 12)
+    ensure_space(2)
+    c.drawString(margin_left, y, "4. Alertas criticas con detonantes")
+    y -= 14
+    if alertas:
+        for aid, tema, nivel, fecha, razon, _ in alertas[:8]:
+            draw_wrapped(f"[{fecha}] Tema: {tema} | Nivel: {nivel}", size=9)
+            draw_wrapped(f"Detonante/Razon: {razon}", size=9, indent=10)
+    else:
+        draw_wrapped("Sin alertas registradas.", size=9)
+    y -= 6
+
+    # 5) Cambios de lenguaje
+    c.setFont("Helvetica-Bold", 12)
+    ensure_space(2)
+    c.drawString(margin_left, y, "5. Cambios de lenguaje (desesperanza, culpa, etc.)")
+    y -= 14
+    texto_total = " ".join([(m[1] or "").lower() for m in mensajes if m[0] == "user"])
+    marcadores = {
+        "desesperanza": ["no puedo", "no valgo", "sin salida", "ya no", "inutil"],
+        "culpa": ["culpa", "mi culpa", "perdon", "falle"],
+        "aislamiento": ["solo", "nadie", "aislado", "sin apoyo"],
+    }
+    hallazgos = []
+    for etiqueta, kws in marcadores.items():
+        hits = sum(1 for k in kws if k in texto_total)
+        hallazgos.append(f"{etiqueta}: {hits} indicador(es)")
+    draw_wrapped(" | ".join(hallazgos), size=9)
+    y -= 6
+
+    # 6) Respuestas de Serenity y efecto esperado
+    c.setFont("Helvetica-Bold", 12)
+    ensure_space(2)
+    c.drawString(margin_left, y, "6. Respuestas de Serenity y efecto esperado")
+    y -= 14
+    pares = []
+    temp_user = None
+    for role, content, ts, _ in mensajes:
+        if role == "user":
+            temp_user = (content, ts)
+        elif role == "assistant" and temp_user:
+            pares.append((temp_user[0], content, temp_user[1]))
+            temp_user = None
+    if pares:
+        for u, b, ts in pares[-6:]:
+            draw_wrapped(f"[{ts}] Usuario: {u}", size=8)
+            draw_wrapped(f"Serenity: {b}", size=8, indent=10)
+            draw_wrapped("Efecto esperado: contencion emocional y orientacion gradual.", size=8, indent=10)
+    else:
+        draw_wrapped("No hay pares usuario-serenity suficientes.", size=9)
+    y -= 6
+
+    # 7) Conclusión clínica breve
+    c.setFont("Helvetica-Bold", 12)
+    ensure_space(2)
+    c.drawString(margin_left, y, "7. Conclusion clinica breve")
+    y -= 14
+    nivel_top = alertas[0][2] if alertas else "bajo"
+    conclusion = (
+        "Se observa malestar emocional con variacion en la intensidad. "
+        "El seguimiento debe centrarse en identificar detonantes recurrentes y fortalecer recursos de afrontamiento."
+    )
+    draw_wrapped(conclusion, size=9)
+    y -= 6
+
+    # 8) Objetivos terapeuticos cortos
+    c.setFont("Helvetica-Bold", 12)
+    ensure_space(2)
+    c.drawString(margin_left, y, "8. Objetivos terapeuticos cortos (3-5)")
+    y -= 14
+    objetivos = [
+        "1) Identificar 3 detonantes personales y su contexto.",
+        "2) Practicar una tecnica breve de regulacion emocional diaria.",
+        "3) Reestructurar 2 pensamientos automaticos negativos por semana.",
+        "4) Activar una red minima de apoyo (1 persona de confianza).",
+        "5) Mantener seguimiento psicologico semanal."
+    ]
+    for o in objetivos:
+        draw_wrapped(o, size=9)
+    y -= 6
+
+    # 9) Semaforo de riesgo
+    c.setFont("Helvetica-Bold", 12)
+    ensure_space(2)
+    c.drawString(margin_left, y, "9. Semaforo de riesgo (alto/medio/bajo) con justificacion")
+    y -= 14
+    color_txt = "ROJO" if nivel_top == "alto" else ("AMARILLO" if nivel_top == "medio" else "VERDE")
+    just = alertas[0][4] if alertas else "Sin alertas recientes; mantener monitoreo preventivo."
+    draw_wrapped(f"Semaforo actual: {color_txt} ({nivel_top.upper()})", size=10)
+    draw_wrapped(f"Justificacion: {just}", size=9)
 
     c.save()
     try:
