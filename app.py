@@ -4,6 +4,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 import psycopg2
 import psycopg2.pool
 import tempfile
@@ -682,115 +684,180 @@ def reporte_pdf(id):
     """, (id,))
 
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    c = canvas.Canvas(temp.name, pagesize=A4)
-    margin_left = 2 * cm
-    margin_top = 28 * cm
-    width, _ = A4
-    y = margin_top
+    doc = SimpleDocTemplate(
+        temp.name,
+        pagesize=A4,
+        leftMargin=1.8 * cm,
+        rightMargin=1.8 * cm,
+        topMargin=1.6 * cm,
+        bottomMargin=1.6 * cm,
+    )
 
-    def ensure_space(lines=1):
-        nonlocal y
-        need = lines * 12
-        if y - need < 2 * cm:
-            c.showPage()
-            y = margin_top
+    styles = getSampleStyleSheet()
+    palette_primary = colors.HexColor("#1F4E78")
+    palette_secondary = colors.HexColor("#2E6AA0")
+    palette_soft = colors.HexColor("#F1F6FB")
+    palette_border = colors.HexColor("#AFC4DA")
+    title_style = ParagraphStyle(
+        "TitleSerenity",
+        parent=styles["Heading1"],
+        fontName="Helvetica-Bold",
+        fontSize=12.5,
+        textColor=colors.white,
+        alignment=0,
+        leading=15,
+        spaceAfter=4,
+    )
+    section_style = ParagraphStyle(
+        "SectionSerenity",
+        parent=styles["Heading4"],
+        fontName="Helvetica-Bold",
+        fontSize=10.5,
+        textColor=colors.white,
+        leading=13,
+        spaceBefore=3,
+        spaceAfter=2,
+    )
+    body_style = ParagraphStyle(
+        "BodySerenity",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=12.5,
+        textColor=colors.HexColor("#1C2733"),
+    )
+    small_style = ParagraphStyle(
+        "SmallSerenity",
+        parent=body_style,
+        fontSize=8.4,
+        leading=11.6,
+    )
 
-    def draw_wrapped(text, font="Helvetica", size=10, indent=0, max_chars=105):
-        nonlocal y
-        text = (text or "").replace("\n", " ").strip() or "(sin contenido)"
-        c.setFont(font, size)
-        while text:
-            ensure_space(1)
-            line = text[:max_chars]
-            text = text[max_chars:]
-            c.drawString(margin_left + indent, y, line)
-            y -= 12
+    story = []
+    section_num = 0
 
-    # Header
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(margin_left, y, "Reporte Psicologico Evolutivo por Sesiones - Serenity")
-    y -= 14
-    c.line(margin_left, y, width - margin_left, y)
-    y -= 18
+    def section_title(text):
+        nonlocal section_num
+        section_num += 1
+        t = Table([[Paragraph(f"{section_num}. {text}", section_style)]], colWidths=[17.6 * cm])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), palette_secondary),
+            ("BOX", (0, 0), (-1, -1), 1, palette_secondary),
+            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(Spacer(1, 5))
+        story.append(t)
+        story.append(Spacer(1, 4))
 
-    # 1) Datos del alumno
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_left, y, "1. Datos del alumno")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    if datos_personales:
-        c.drawString(margin_left, y, f"Nombre: {datos_personales[0] or '-'}"); y -= 12
-        c.drawString(margin_left, y, f"Matricula: {datos_personales[1] or '-'}"); y -= 12
-        c.drawString(margin_left, y, f"Correo: {datos_personales[2] or '-'}"); y -= 12
-        c.drawString(margin_left, y, f"Telefono: {datos_personales[3] or '-'}"); y -= 12
-        c.drawString(margin_left, y, f"Facultad: {datos_personales[4] or '-'}"); y -= 14
-    else:
-        c.drawString(margin_left, y, "Sin datos personales registrados."); y -= 14
+    def bordered_paragraph(text, style=body_style, bg=colors.white):
+        box = Table([[Paragraph(text, style)]], colWidths=[17.6 * cm])
+        box.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), bg),
+            ("BOX", (0, 0), (-1, -1), 1, palette_border),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(box)
+        story.append(Spacer(1, 3))
 
-    # 2) Linea de tiempo de interacciones clave
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_left, y, "2. Linea de tiempo de interacciones clave")
-    y -= 14
+    # Header visual
+    head = Table([[Paragraph("Reporte Psicologico Evolutivo por Sesiones - Serenity", title_style)]], colWidths=[17.6 * cm])
+    head.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), palette_primary),
+        ("BOX", (0, 0), (-1, -1), 1.2, palette_primary),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(head)
+    story.append(Spacer(1, 8))
+
+    # 1 Datos del alumno
+    section_title("Datos del alumno")
+    dp = datos_personales or ("-", "-", "-", "-", "-")
+    data_tbl = Table(
+        [
+            ["Nombre", dp[0] or "-"],
+            ["Matricula", dp[1] or "-"],
+            ["Correo", dp[2] or "-"],
+            ["Telefono", dp[3] or "-"],
+            ["Facultad", dp[4] or "-"],
+        ],
+        colWidths=[4.0 * cm, 13.6 * cm],
+    )
+    data_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), palette_soft),
+        ("BOX", (0, 0), (-1, -1), 1.2, palette_border),
+        ("INNERGRID", (0, 0), (-1, -1), 0.8, colors.HexColor("#D5E0EC")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(data_tbl)
+
+    # 2 Linea de tiempo
+    section_title("Linea de tiempo de interacciones clave")
     claves = [m for m in mensajes if m[0] == "user"][-12:]
     if claves:
         for _, content, ts, _ in claves:
-            draw_wrapped(f"[{ts}] {content}", size=9)
+            bordered_paragraph(f"<b>[{ts}]</b> {content or '(sin contenido)'}", small_style, bg=colors.HexColor("#FAFCFF"))
     else:
-        draw_wrapped("Sin interacciones registradas.", size=9)
-    y -= 6
+        bordered_paragraph("Sin interacciones registradas.", body_style, bg=colors.HexColor("#FAFCFF"))
 
-    # 3) Evolucion emocional
-    c.setFont("Helvetica-Bold", 12)
-    ensure_space(2)
-    c.drawString(margin_left, y, "3. Evolucion emocional (inicio -> actual)")
-    y -= 14
+    # 3 Evolucion emocional
+    section_title("Evolucion emocional (inicio -> actual)")
     if mensajes:
         primer_user = next((m[1] for m in mensajes if m[0] == "user"), "")
         ultimo_user = next((m[1] for m in reversed(mensajes) if m[0] == "user"), "")
-        draw_wrapped(f"Inicio: {primer_user}", size=9)
-        draw_wrapped(f"Actual: {ultimo_user}", size=9)
+        bordered_paragraph(f"<b>Inicio:</b> {primer_user or '(sin contenido)'}", body_style, bg=palette_soft)
+        bordered_paragraph(f"<b>Actual:</b> {ultimo_user or '(sin contenido)'}", body_style, bg=palette_soft)
     else:
-        draw_wrapped("No hay suficientes datos para evaluar evolucion.", size=9)
+        bordered_paragraph("No hay suficientes datos para evaluar evolucion.", body_style, bg=palette_soft)
     if perfil:
-        draw_wrapped(f"Perfil emocional mas reciente ({perfil[0][1]}): {perfil[0][0]}", size=9)
-    y -= 6
+        bordered_paragraph(f"<b>Perfil emocional mas reciente ({perfil[0][1]}):</b> {perfil[0][0]}", body_style, bg=palette_soft)
 
-    # 4) Alertas criticas con detonantes
-    c.setFont("Helvetica-Bold", 12)
-    ensure_space(2)
-    c.drawString(margin_left, y, "4. Alertas criticas con detonantes")
-    y -= 14
+    # 4 Alertas criticas
+    section_title("Alertas criticas con detonantes")
     if alertas:
-        for aid, tema, nivel, fecha, razon, _ in alertas[:8]:
-            draw_wrapped(f"[{fecha}] Tema: {tema} | Nivel: {nivel}", size=9)
-            draw_wrapped(f"Detonante/Razon: {razon}", size=9, indent=10)
+        for _, tema, nivel, fecha, razon, _ in alertas[:8]:
+            box = Table([[Paragraph(f"<b>{fecha}</b> | Tema: {tema} | Nivel: {nivel}<br/>{razon}", body_style)]], colWidths=[17.6 * cm])
+            box.setStyle(TableStyle([
+                ("BOX", (0, 0), (-1, -1), 1.1, palette_border),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FAFCFF")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]))
+            story.append(box)
+            story.append(Spacer(1, 4))
     else:
-        draw_wrapped("Sin alertas registradas.", size=9)
-    y -= 6
+        bordered_paragraph("Sin alertas registradas.", body_style, bg=colors.HexColor("#FAFCFF"))
 
-    # 5) Cambios de lenguaje
-    c.setFont("Helvetica-Bold", 12)
-    ensure_space(2)
-    c.drawString(margin_left, y, "5. Cambios de lenguaje (desesperanza, culpa, etc.)")
-    y -= 14
+    # 5 Cambios de lenguaje
+    section_title("Cambios de lenguaje (desesperanza, culpa, etc.)")
     texto_total = " ".join([(m[1] or "").lower() for m in mensajes if m[0] == "user"])
     marcadores = {
         "desesperanza": ["no puedo", "no valgo", "sin salida", "ya no", "inutil"],
         "culpa": ["culpa", "mi culpa", "perdon", "falle"],
         "aislamiento": ["solo", "nadie", "aislado", "sin apoyo"],
     }
-    hallazgos = []
-    for etiqueta, kws in marcadores.items():
-        hits = sum(1 for k in kws if k in texto_total)
-        hallazgos.append(f"{etiqueta}: {hits} indicador(es)")
-    draw_wrapped(" | ".join(hallazgos), size=9)
-    y -= 6
+    hallazgos = [f"{k}: {sum(1 for w in v if w in texto_total)} indicador(es)" for k, v in marcadores.items()]
+    bordered_paragraph(" | ".join(hallazgos), body_style, bg=palette_soft)
 
-    # 6) Respuestas de Serenity y efecto esperado
-    c.setFont("Helvetica-Bold", 12)
-    ensure_space(2)
-    c.drawString(margin_left, y, "6. Respuestas de Serenity y efecto esperado")
-    y -= 14
+    # 6 Respuestas de Serenity
+    section_title("Respuestas de Serenity y efecto esperado")
     pares = []
     temp_user = None
     for role, content, ts, _ in mensajes:
@@ -801,55 +868,60 @@ def reporte_pdf(id):
             temp_user = None
     if pares:
         for u, b, ts in pares[-6:]:
-            draw_wrapped(f"[{ts}] Usuario: {u}", size=8)
-            draw_wrapped(f"Serenity: {b}", size=8, indent=10)
-            draw_wrapped("Efecto esperado: contencion emocional y orientacion gradual.", size=8, indent=10)
+            bordered_paragraph(
+                f"<b>[{ts}] Usuario:</b> {u or '(sin contenido)'}<br/><b>Serenity:</b> {b or '(sin contenido)'}"
+                "<br/><i>Efecto esperado:</i> contencion emocional y orientacion gradual.",
+                small_style,
+                bg=colors.HexColor("#FAFCFF"),
+            )
     else:
-        draw_wrapped("No hay pares usuario-serenity suficientes.", size=9)
-    y -= 6
+        bordered_paragraph("No hay pares usuario-serenity suficientes.", body_style, bg=colors.HexColor("#FAFCFF"))
 
-    # 7) Conclusión clínica breve
-    c.setFont("Helvetica-Bold", 12)
-    ensure_space(2)
-    c.drawString(margin_left, y, "7. Conclusion clinica breve")
-    y -= 14
-    nivel_top = alertas[0][2] if alertas else "bajo"
-    conclusion = (
+    # 7 Conclusion
+    section_title("Conclusion clinica breve")
+    bordered_paragraph(
         "Se observa malestar emocional con variacion en la intensidad. "
-        "El seguimiento debe centrarse en identificar detonantes recurrentes y fortalecer recursos de afrontamiento."
+        "El seguimiento debe centrarse en identificar detonantes recurrentes y fortalecer recursos de afrontamiento.",
+        body_style,
+        bg=palette_soft,
     )
-    draw_wrapped(conclusion, size=9)
-    y -= 6
 
-    # 8) Objetivos terapeuticos cortos
-    c.setFont("Helvetica-Bold", 12)
-    ensure_space(2)
-    c.drawString(margin_left, y, "8. Objetivos terapeuticos cortos (3-5)")
-    y -= 14
+    # 8 Objetivos terapeuticos
+    section_title("Objetivos terapeuticos cortos (3-5)")
     objetivos = [
         "1) Identificar 3 detonantes personales y su contexto.",
         "2) Practicar una tecnica breve de regulacion emocional diaria.",
         "3) Reestructurar 2 pensamientos automaticos negativos por semana.",
         "4) Activar una red minima de apoyo (1 persona de confianza).",
-        "5) Mantener seguimiento psicologico semanal."
+        "5) Mantener seguimiento psicologico semanal.",
     ]
     for o in objetivos:
-        draw_wrapped(o, size=9)
-    y -= 6
+        bordered_paragraph(o, body_style, bg=colors.HexColor("#FAFCFF"))
 
-    # 9) Semaforo de riesgo
-    c.setFont("Helvetica-Bold", 12)
-    ensure_space(2)
-    c.drawString(margin_left, y, "9. Semaforo de riesgo (alto/medio/bajo) con justificacion")
-    y -= 14
+    # 9 Semaforo
+    section_title("Semaforo de riesgo (alto/medio/bajo) con justificacion")
+    nivel_top = alertas[0][2] if alertas else "bajo"
     color_txt = "ROJO" if nivel_top == "alto" else ("AMARILLO" if nivel_top == "medio" else "VERDE")
     just = alertas[0][4] if alertas else "Sin alertas recientes; mantener monitoreo preventivo."
-    draw_wrapped(f"Semaforo actual: {color_txt} ({nivel_top.upper()})", size=10)
-    draw_wrapped(f"Justificacion: {just}", size=9)
+    sem_box = Table(
+        [[Paragraph(f"<b>Semaforo actual:</b> {color_txt} ({nivel_top.upper()})<br/><b>Justificacion:</b> {just}", body_style)]],
+        colWidths=[17.6 * cm]
+    )
+    sem_color = colors.HexColor("#FDECEC") if nivel_top == "alto" else (colors.HexColor("#FFF9E6") if nivel_top == "medio" else colors.HexColor("#ECF9F0"))
+    sem_box.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), sem_color),
+        ("BOX", (0, 0), (-1, -1), 1.2, colors.HexColor("#C9D3DD")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(sem_box)
 
-    c.save()
+    doc.build(story)
     try:
-        return send_file(temp.name, as_attachment=True, download_name=f"Reporte_{user_name}.pdf")
+        ts_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return send_file(temp.name, as_attachment=True, download_name=f"Reporte_{user_name}_{ts_name}.pdf")
     finally:
         try:
             os.unlink(temp.name)
