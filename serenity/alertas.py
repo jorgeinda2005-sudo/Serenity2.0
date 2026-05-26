@@ -191,7 +191,6 @@ def enviar_correo_alerta(destinatario, usuario_info, motivo_riesgo):
     texto_plano, html = _render_mensaje_estilo_gmail(usuario_info, alerta)
 
     archivo_excel = f"alerta_{usuario_info['id']}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-    archivo_clasificacion = generar_excel_clasificacion(usuario_info)
     pd.DataFrame([usuario_info]).to_excel(archivo_excel, index=False)
 
     nombre = usuario_info.get("nombre_completo") or usuario_info.get("username") or str(usuario_info.get("id", "N/A"))
@@ -211,7 +210,7 @@ def enviar_correo_alerta(destinatario, usuario_info, motivo_riesgo):
     mixed.attach(msg)
 
     try:
-        for path in (archivo_excel, archivo_clasificacion):
+        for path in (archivo_excel,):
             with open(path, "rb") as fh:
                 part = MIMEBase("application", "octet-stream")
                 part.set_payload(fh.read())
@@ -229,7 +228,7 @@ def enviar_correo_alerta(destinatario, usuario_info, motivo_riesgo):
         logger.error(f"Error enviando correo: {e}")
         raise
     finally:
-        for path in (archivo_excel, archivo_clasificacion):
+        for path in (archivo_excel,):
             try:
                 if os.path.exists(path):
                     os.remove(path)
