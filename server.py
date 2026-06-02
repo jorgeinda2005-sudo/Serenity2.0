@@ -29,7 +29,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").rstrip("/")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL") or os.getenv("WEBHOOK_HOST", "")
+WEBHOOK_URL = WEBHOOK_URL.rstrip("/")
 PORT        = int(os.getenv("PORT", 10000))
 
 # ── Event loop exclusivo para el bot ─────────────────────────────────────────
@@ -62,15 +63,20 @@ def telegram_webhook(token: str):
     data   = flask_request.get_json(force=True, silent=True) or {}
     update = Update.de_json(data, _bot_app.bot)
 
-    # Enviamos la corrutina al loop del bot y esperamos a que termine
+    # Enviamos la corrutina al loop del bot y respondemos rápido a Telegram.
+    # Las respuestas al usuario se mandan desde los handlers de python-telegram-bot.
     future = asyncio.run_coroutine_threadsafe(
         _bot_app.process_update(update),
         _bot_loop,
     )
-    try:
-        future.result(timeout=30)   # máximo 30 s para procesar el update
-    except Exception as e:
-        logger.error(f"Error procesando update de Telegram: {e}")
+
+    def _log_update_error(done_future):
+        try:
+            done_future.result()
+        except Exception as e:
+            logger.error(f"Error procesando update de Telegram: {e}")
+
+    future.add_done_callback(_log_update_error)
 
     return "OK", 200
 
