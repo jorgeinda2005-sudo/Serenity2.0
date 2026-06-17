@@ -107,9 +107,9 @@ async def directorio(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # MENSAJE PRINCIPAL
 # ══════════════════════════════════════════════════════════════════════════════
 
-async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE, texto_override=None):
     user_id = update.effective_user.id
-    texto   = update.message.text.strip()
+    texto   = (texto_override if texto_override is not None else update.message.text).strip()
     estado  = context.user_data.get("estado")
 
     # ── Flujo de registro ──────────────────────────────────────────────────────
@@ -583,8 +583,7 @@ async def manejar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(f"Transcribi tu audio asi:\n\n{texto_transcrito}")
-    update.message.text = texto_transcrito
-    await manejar_mensaje(update, context)
+    await manejar_mensaje(update, context, texto_override=texto_transcrito)
 
 # BUILD APP — usado por server.py para el webhook integrado en Flask
 # ══════════════════════════════════════════════════════════════════════════════
