@@ -1,6 +1,5 @@
 import os
 import re
-import asyncio
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -8,14 +7,15 @@ from telegram.ext import (
     CallbackQueryHandler, filters, ContextTypes
 )
 
-from serenity.config import TOKEN_TELEGRAM, TMP_DIR, PDF_DIRECTORIO, logger
+from serenity.config import TOKEN_TELEGRAM, PDF_DIRECTORIO, logger
 from serenity.database import (
     crear_base_datos, guardar_usuario, completar_registro,
     usuario_registrado, obtener_datos_usuario, obtener_psicologos_por_facultad,
     registrar_correo_enviado
 )
-from serenity.ai_core import obtener_respuesta_ia, groq_client
+from serenity.ai_core import obtener_respuesta_ia
 from serenity.alertas import enviar_correo_alerta, enviar_whatsapp_emergencia
+from serenity.audio_transcription import AudioTranscriptionError, transcribir_audio_telegram
 
 # ── Estados del flujo de registro ─────────────────────────────────────────────
 ESTADO_NOMBRE    = "nombre"
@@ -575,33 +575,17 @@ async def _enviar_directorio_pdf(update: Update):
 # ══════════════════════════════════════════════════════════════════════════════
 
 async def manejar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id    = update.effective_user.id
-    archivo    = await update.message.voice.get_file()
-    ruta_audio = os.path.join(TMP_DIR, f"{user_id}_{archivo.file_id}.ogg")
-    await archivo.download_to_drive(ruta_audio)
-
+    user_id = update.effective_user.id
     try:
-        import asyncio as _asyncio
-        def transcribir():
-            with open(ruta_audio, "rb") as file:
-                return groq_client.audio.transcriptions.create(
-                    file=(ruta_audio, file.read()),
-                    model="whisper-large-v3-turbo",
-                    response_format="text"
-                )
-        texto_transcrito = await _asyncio.to_thread(transcribir)
-    except Exception as e:
-        logger.error(f"Error transcribiendo audio: {e}")
-        texto_transcrito = "Lo siento, tuve problemas escuchando el audio. ¿Podrías escribirlo?"
-    finally:
-        if os.path.exists(ruta_audio):
-            os.remove(ruta_audio)
+        texto_transcrito = await transcribir_audio_telegram(update.message, user_id)
+    except AudioTranscriptionError as e:
+        await update.message.reply_text(e.user_message)
+        return
 
+    await update.message.reply_text(f"Transcribi tu audio asi:\n\n{texto_transcrito}")
     update.message.text = texto_transcrito
     await manejar_mensaje(update, context)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # BUILD APP — usado por server.py para el webhook integrado en Flask
 # ══════════════════════════════════════════════════════════════════════════════
 

@@ -42,4 +42,5 @@ env/
 .venv/
 
 #---Solo uso local de win y no se sube a github---
-ffmpeg-*/
+ffmpeg-*/ 
+#ese tipo de formato no se va a subir al git
