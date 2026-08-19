@@ -227,15 +227,15 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE, te
 
 async def preguntar_apoyo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[
-        InlineKeyboardButton("✅ Sí, me gustaría", callback_data="apoyo_si"),
-        InlineKeyboardButton("❌ No por ahora",    callback_data="apoyo_no"),
+        InlineKeyboardButton("👩‍⚕️ Quiero hablar con un psicólogo", callback_data="datos_si"),
+        InlineKeyboardButton("💬 Quiero seguir hablando aquí", callback_data="datos_no"),
+        InlineKeyboardButton("🆘 Necesito ayuda ahora", callback_data="apoyo_sos"),
     ]]
     await update.message.reply_text(
         "💙 Noto que estás pasando por un momento difícil "
         "y me gustaría que pudieras recibir apoyo especializado.\n\n"
         "¿Te gustaría hablar con alguien que pueda acompañarte "
-        "de manera más cercana?\n\n"
-        "_Puedes decir que no, está completamente bien_ 🤗",
+        "de manera más cercana?\n\n",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -245,26 +245,13 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
     query = update.callback_query
     await query.answer()
 
-    if query.data == "apoyo_si":
-        keyboard = [[
-            InlineKeyboardButton("✅ Sí, comparte mis datos", callback_data="datos_si"),
-            InlineKeyboardButton("❌ Prefiero no",            callback_data="datos_no"),
-        ]]
+    if query.data == "apoyo_sos":
         await query.edit_message_text(
-            "Me alegra que quieras recibir apoyo 💙\n\n"
-            "Para conectarte con el psicólogo adecuado, "
-            "¿te gustaría compartir tus datos con él o ella?\n\n"
-            "_Tu información solo será vista por el especialista_ 🔒",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-    elif query.data == "apoyo_no":
-        await query.edit_message_text(
-            "Está bien, respeto completamente tu decisión 💙\n\n"
+            "💙 Está bien, no tienes que decidirlo todo ahora.\n\nQuiero que sepas que puedes volver a pedir ayuda cuando lo necesites. "
+            "Si en algún momento sientes que podrías hacerte daño o que estás en peligro, busca ayuda inmediata y procura no quedarte a solas.\n\n"
             f"{NUMEROS_CRISIS}\n\n"
-            "Y cuando te sientas listo/a, también puedes acercarte "
-            "a cualquiera de los psicólogos de la UNACAR:",
+            "👩‍⚕️ También puedes acercarte a cualquiera de los psicólogos de la UNACAR. A continuación te comparto el directorio oficial "
+            "para que puedas consultarlo cuando lo necesites. \n\n💙 No estás solo/a. Puedes volver a hablar conmigo en cualquier momento.",
             parse_mode="Markdown"
         )
         await _enviar_directorio_pdf_desde_callback(query)
@@ -278,7 +265,7 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
             razon = context.user_data.get("alerta_pendiente", "")
             await query.edit_message_text(
                 "💙 Gracias por confiar. Ya tenemos tus datos registrados.\n\n"
-                "Notificaremos a un psicólogo para que pueda contactarte pronto.\n\n"
+                "Compartiremos tu solicitud con el equipo de psicología de la universidad para que puedan brindarte seguimiento.\n\n"
                 "No tienes que hacer nada más. Yo sigo aquí contigo 🤗",
                 parse_mode="Markdown"
             )
@@ -308,7 +295,7 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
         else:
             await query.edit_message_text(
                 "Gracias por confiar en mí 💙\n\n"
-                "Para conectarte con el psicólogo adecuado, "
+                "Para conectarte con un profesional, "
                 "¿me podrías decir tu *nombre completo*?",
                 parse_mode="Markdown"
             )
@@ -316,7 +303,9 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
 
     elif query.data == "datos_no":
         await query.edit_message_text(
-            "Está bien, no tienes que compartir nada que no quieras 💙\n\n"
+            "💙 Está bien, respeto tu decisión. No tienes que hacerlo ahora.\n\n"
+            "Podemos seguir hablando aquí y puedes contarme cómo te sientes "
+            "o qué estás pasando. Estoy aquí para escucharte.\n\n"
             f"{NUMEROS_CRISIS}\n\n"
             "Y cuando te sientas listo/a, también puedes acercarte "
             "a cualquiera de los psicólogos de la UNACAR:",
@@ -334,7 +323,6 @@ async def manejar_consentimiento(update: Update, context: ContextTypes.DEFAULT_T
             parse_mode="Markdown"
         )
         await _guardar_y_notificar_query(query, context)
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GUARDAR REGISTRO Y NOTIFICAR
