@@ -91,7 +91,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "o usando /directorio y te doy la información oficial.\n\n"
         "🔒 Privacidad — Tus conversaciones son privadas. Si se activa una alerta de riesgo, la información podrá compartirse con los "
         "psicólogos de la universidad únicamente con tu consentimiento, para brindarte el apoyo adecuado."
-        "──────────────────\n"
+        "\n──────────────────\n"
         "Comandos:\n"
         "/start — Iniciar Serenity\n"
         "/menu — Ver este menú\n"
