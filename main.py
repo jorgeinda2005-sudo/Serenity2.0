@@ -70,10 +70,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
         f"Hola {user.first_name} 👋 Soy *Serenity*, tu espacio seguro en la UNACAR.\n\n"
-        "🔒 *Tu privacidad es lo primero:*\n"
-        "Todo lo que me cuentes es confidencial. Solo compartiría información "
-        "con un especialista si detectara que estás en riesgo, "
-        "y siempre te lo haré saber antes.\n\n"
+        "🔒 Tu privacidad es importante para nosotros.*\n"
+        "Tus conversaciones son privadas y no se comparten con otras personas. En caso de que durante una conversación se active "
+        "una alerta de riesgo, la información podrá ser compartida únicamente con los psicólogos de la universidad, "
+        "y esto se realizará con tu consentimiento para que puedan brindarte el apoyo adecuado.\n\n"
+        "No tienes que enfrentar todo en silencio. Puedes contarme cómo te sientes, qué está pasando o simplemente comenzar una conversación."
         "Estoy aquí para escucharte, sin juicios y sin prisa. "
         "¿Cómo estás hoy? 💙\n\n"
         "_Usa /menu para ver las opciones disponibles._",
@@ -86,12 +87,13 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📋 *Menú de Serenity*\n\n"
         "💬 *Hablar conmigo* — Escríbeme cómo te sientes, estoy aquí para escucharte.\n\n"
         "🎤 *Mensaje de voz* — También puedes mandarme un audio.\n\n"
-        "🧠 *Apoyo emocional* — Si estás pasando por estrés, ansiedad o tristeza, cuéntame.\n\n"
-        "👩‍⚕️ *Directorio de psicólogos* — Escribe _\"quiero hablar con un psicólogo\"_ "
-        "y te doy la información completa + el PDF oficial.\n\n"
+        "👩‍⚕️ *Directorio de psicólogos* — ¿Quieres hablar con un profesional? Escribe _\"quiero hablar con un profesional\"_ "
+        "o usando /directorio y te doy la información oficial.\n\n"
+        "🔒 Privacidad — Tus conversaciones son privadas. Si se activa una alerta de riesgo, la información podrá compartirse con los "
+        "psicólogos de la universidad únicamente con tu consentimiento, para brindarte el apoyo adecuado."
         "──────────────────\n"
         "Comandos:\n"
-        "/start — Bienvenida\n"
+        "/start — Iniciar Serenity\n"
         "/menu — Ver este menú\n"
         "/directorio — Directorio de psicólogos en PDF",
         parse_mode="Markdown"
