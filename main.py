@@ -70,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
         f"Hola {user.first_name} 👋 Soy *Serenity*, tu espacio seguro en la UNACAR.\n\n"
-        "🔒 Tu privacidad es importante para nosotros.*\n"
+        "🔒 *Tu privacidad es importante para nosotros.*\n"
         "Tus conversaciones son privadas y no se comparten con otras personas. En caso de que durante una conversación se active "
         "una alerta de riesgo, la información podrá ser compartida únicamente con los psicólogos de la universidad, "
         "y esto se realizará con tu consentimiento para que puedan brindarte el apoyo adecuado.\n\n"
