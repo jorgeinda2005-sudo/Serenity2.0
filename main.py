@@ -74,7 +74,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Tus conversaciones son privadas y no se comparten con otras personas. En caso de que durante una conversación se active "
         "una alerta de riesgo, la información podrá ser compartida únicamente con los psicólogos de la universidad, "
         "y esto se realizará con tu consentimiento para que puedan brindarte el apoyo adecuado.\n\n"
-        "No tienes que enfrentar todo en silencio. Puedes contarme cómo te sientes, qué está pasando o simplemente comenzar una conversación."
+        "No tienes que enfrentar todo en silencio. Puedes contarme cómo te sientes, qué está pasando o simplemente comenzar una conversación. "
         "Estoy aquí para escucharte, sin juicios y sin prisa. "
         "¿Cómo estás hoy? 💙\n\n"
         "_Usa /menu para ver las opciones disponibles._",
