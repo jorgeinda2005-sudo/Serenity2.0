@@ -349,7 +349,10 @@ def limpiar_historial_usuario(user_id):
 
 
 def _notificar_psicologos_por_facultad(user_id, facultad, usuario_info, motivo):
-    destinatario = "josemoscosotareas2017@gmail.com"
+    destinatario = [
+        "serenityunacarmx@gmail.com",
+        "jorgeinda2005@gmail.com",
+        "jorgeinda4@gmail.com"]
     asunto = f"ALERTA DE RIESGO - Serenity - Usuario {usuario_info.get('id', user_id)}"
     try:
         enviar_correo_alerta(destinatario, usuario_info, motivo)
