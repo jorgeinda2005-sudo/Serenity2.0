@@ -355,7 +355,7 @@ def _notificar_psicologos_por_facultad(user_id, facultad, usuario_info, motivo):
         "jorgeinda4@gmail.com"]
     asunto = f"ALERTA DE RIESGO - Serenity - Usuario {usuario_info.get('id', user_id)}"
     try:
-        enviar_correo_alerta(destinatario, usuario_info, motivo)
+        enviar_correo_alerta(", ".join(destinatario), usuario_info, motivo)
         registrar_correo_enviado(
             user_id=user_id,
             psicologo_id=None,
