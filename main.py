@@ -349,13 +349,32 @@ def limpiar_historial_usuario(user_id):
 
 
 def _notificar_psicologos_por_facultad(user_id, facultad, usuario_info, motivo):
-    destinatario = [
+    destinatarios = [
         "serenityunacarmx@gmail.com",
         "jorgeinda2005@gmail.com",
         "jorgeinda4@gmail.com"]
+    destinatario = ", ".join(destinatarios)
     asunto = f"ALERTA DE RIESGO - Serenity - Usuario {usuario_info.get('id', user_id)}"
     try:
-        enviar_correo_alerta(", ".join(destinatario), usuario_info, motivo)
+        enviar_correo_alerta(destinatario, usuario_info, motivo)
+    except Exception as e:
+        logger.error(f"Error enviando correo a {destinatario}: {e}")
+        try:
+            registrar_correo_enviado(
+                user_id=user_id,
+                psicologo_id=None,
+                destinatario=destinatario,
+                facultad=facultad,
+                asunto=asunto,
+                motivo=motivo,
+                estado="error",
+                error=str(e)[:500],
+            )
+        except Exception as registro_error:
+            logger.error(f"No se pudo registrar el error de correo: {registro_error}")
+        return 0
+
+    try:
         registrar_correo_enviado(
             user_id=user_id,
             psicologo_id=None,
@@ -366,20 +385,9 @@ def _notificar_psicologos_por_facultad(user_id, facultad, usuario_info, motivo):
             estado="enviado",
             error=None,
         )
-        return 1
-    except Exception as e:
-        registrar_correo_enviado(
-            user_id=user_id,
-            psicologo_id=None,
-            destinatario=destinatario,
-            facultad=facultad,
-            asunto=asunto,
-            motivo=motivo,
-            estado="error",
-            error=str(e)[:500],
-        )
-        logger.error(f"Error enviando correo a {destinatario}: {e}")
-        return 0
+    except Exception as registro_error:
+        logger.error(f"Correo enviado, pero no se pudo registrar el envío: {registro_error}")
+    return 1
 
 
 async def _guardar_y_notificar(update, context):
