@@ -160,8 +160,97 @@ def crear_base_datos():
             );
             """
         )
+        execute_query(
+            """
+            CREATE TABLE IF NOT EXISTS serenity_channel_identities (
+                channel TEXT NOT NULL,
+                external_id TEXT NOT NULL,
+                user_id BIGINT NOT NULL REFERENCES usuarios(user_id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (channel, external_id),
+                UNIQUE (channel, user_id)
+            );
+            """
+        )
+        execute_query(
+            """
+            CREATE TABLE IF NOT EXISTS serenity_processed_events (
+                channel TEXT NOT NULL,
+                event_id TEXT NOT NULL,
+                processed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (channel, event_id)
+            );
+            """
+        )
     else:
         logger.error("SERENITY: No se pudo verificar la conexion inicial.")
+
+
+def obtener_o_crear_usuario_canal(channel, external_id, username=""):
+    """Resuelve un ID externo de canal a un ID interno sin colisionar con Telegram."""
+    channel = str(channel).strip().lower()
+    external_id = str(external_id).strip()
+    if not channel or not external_id:
+        raise ValueError("El canal y el ID externo son obligatorios.")
+
+    conn = get_conn()
+    if not conn:
+        raise RuntimeError("No hay conexión a la base de datos.")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT user_id FROM serenity_channel_identities WHERE channel=%s AND external_id=%s",
+                (channel, external_id),
+            )
+            row = cur.fetchone()
+            if row:
+                cur.execute(
+                    "UPDATE usuarios SET username=COALESCE(NULLIF(%s,''), username) WHERE user_id=%s",
+                    (username or "", row[0]),
+                )
+                conn.commit()
+                return row[0]
+
+            # IDs internos negativos reservan un espacio separado de los IDs Telegram positivos.
+            cur.execute("SELECT pg_advisory_xact_lock(734201)")
+            cur.execute(
+                "SELECT user_id FROM serenity_channel_identities WHERE channel=%s AND external_id=%s",
+                (channel, external_id),
+            )
+            row = cur.fetchone()
+            if row:
+                conn.commit()
+                return row[0]
+            cur.execute("SELECT LEAST(COALESCE(MIN(user_id), 0), 0) - 1 FROM usuarios")
+            internal_id = cur.fetchone()[0]
+            cur.execute(
+                "INSERT INTO usuarios (user_id, username) VALUES (%s, %s)",
+                (internal_id, username or ""),
+            )
+            cur.execute(
+                "INSERT INTO serenity_channel_identities (channel, external_id, user_id) VALUES (%s, %s, %s)",
+                (channel, external_id, internal_id),
+            )
+        conn.commit()
+        return internal_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        release_conn(conn)
+
+
+def reclamar_evento_canal(channel, event_id):
+    """Marca un evento entrante como procesado; False indica reintento duplicado."""
+    res = execute_query(
+        """
+        INSERT INTO serenity_processed_events (channel, event_id)
+        VALUES (%s, %s) ON CONFLICT DO NOTHING RETURNING event_id
+        """,
+        (str(channel), str(event_id)),
+        fetch=True,
+    )
+    return bool(res)
 
 
 def guardar_usuario(user_id, username, first_name, last_name):

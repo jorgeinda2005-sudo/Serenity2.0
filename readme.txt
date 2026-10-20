@@ -142,6 +142,13 @@ Proyecto Serenity/
   WEBHOOK_URL=https://tu-app.onrender.com   # Solo para producción
   PORT=10000                                  # Puerto para Render
 
+  # ── Messenger Platform (opcional) ──
+  MESSENGER_VERIFY_TOKEN=elige-un-secreto-largo
+  MESSENGER_APP_SECRET=secreto-de-tu-app-de-meta
+  MESSENGER_PAGE_ACCESS_TOKEN=token-de-acceso-de-la-pagina
+  MESSENGER_PAGE_ID=id-de-tu-pagina
+  MESSENGER_GRAPH_API_VERSION=vXX.0           # Versión vigente de Graph API
+
   # ── Opcional ──
   COOLDOWN_DIAS_INFO=3
 
@@ -242,6 +249,32 @@ Proyecto Serenity/
   - El cooldown de alertas es de 60 minutos por usuario
   - La evaluación de dependencia corre cada 15 mensajes
   - La evaluación de perfil emocional corre cada 30 mensajes
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  MESSENGER — CONFIGURACIÓN DE PRUEBAS
+═══════════════════════════════════════════════════════════════════════════════
+
+  Serenity expone el webhook de Messenger en:
+    https://TU-DOMINIO/webhook/messenger
+
+  Configuración necesaria en Meta for Developers:
+    1. Crear/configurar una app con Messenger y vincular una Página de Facebook.
+    2. Configurar la URL anterior como Callback URL y usar el mismo
+       MESSENGER_VERIFY_TOKEN en el campo Verify Token.
+    3. Suscribir la Página al campo "messages".
+    4. Asignar la tarea pages_messaging y obtener el Page Access Token.
+    5. Copiar el App Secret, Page ID y token a las variables de entorno del deploy.
+    6. Configurar MESSENGER_GRAPH_API_VERSION con una versión vigente de Meta.
+
+  La inicialización normal del servidor crea las tablas de identidades y eventos.
+  Los usuarios actuales de Telegram conservan su ID e historial. Los usuarios de
+  Messenger reciben IDs internos negativos, vinculados a su PSID en
+  serenity_channel_identities; así no se mezclan las identidades de los canales.
+  Messenger admite mensajes de texto y /start o "hola". Audios, botones y el
+  registro institucional de Telegram aún no se implementan para Messenger.
+  Inicia la conversación escribiendo primero a la Página; Meta limita los
+  mensajes de respuesta a su ventana de mensajería vigente.
 
 
 ═══════════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,5 @@
 from flask import Flask, render_template, redirect, request, session, send_file
+from werkzeug.routing import BaseConverter
 from flask_bcrypt import check_password_hash, generate_password_hash
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -22,6 +23,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+
+
+class SignedIntConverter(BaseConverter):
+    regex = r"-?\d+"
+
+
+app.url_map.converters["signed"] = SignedIntConverter
 # FIX: La secret_key nunca debe estar hardcodeada. Genera una con:
 #   python -c "import secrets; print(secrets.token_hex(32))"
 # y ponla en tu .env como SECRET_KEY=...
@@ -490,7 +498,7 @@ def ver_usuarios():
 # PERFIL DE ALUMNO
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.route("/usuario/<int:id>")
+@app.route("/usuario/<signed:id>")
 def perfil_usuario(id):
     if "user" not in session:
         return redirect("/")
@@ -627,7 +635,7 @@ def perfil_usuario(id):
 # REPORTE PDF
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.route("/reporte_pdf/<int:id>")
+@app.route("/reporte_pdf/<signed:id>")
 def reporte_pdf(id):
     if "user" not in session:
         return redirect("/")

@@ -22,6 +22,7 @@ from app import app as flask_app
 from main import build_app
 from serenity.database import crear_base_datos
 from serenity.config import TOKEN_TELEGRAM, logger
+from serenity.messenger import validar_firma_meta, procesar_webhook
 from telegram import Update
 
 logging.basicConfig(
@@ -79,6 +80,35 @@ def telegram_webhook(token: str):
     future.add_done_callback(_log_update_error)
 
     return "OK", 200
+
+
+@flask_app.route("/webhook/messenger", methods=["GET", "POST"])
+def messenger_webhook():
+    """Webhook de Meta: handshake GET y recepción firmada de mensajes POST."""
+    if flask_request.method == "GET":
+        verify_token = os.getenv("MESSENGER_VERIFY_TOKEN", "")
+        if (
+            flask_request.args.get("hub.mode") == "subscribe"
+            and verify_token
+            and flask_request.args.get("hub.verify_token") == verify_token
+        ):
+            return flask_request.args.get("hub.challenge", ""), 200
+        return "Forbidden", 403
+
+    raw_body = flask_request.get_data(cache=True)
+    signature = flask_request.headers.get("X-Hub-Signature-256", "")
+    if not validar_firma_meta(raw_body, signature):
+        return "Forbidden", 403
+
+    payload = flask_request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return "Bad Request", 400
+    try:
+        asyncio.run(procesar_webhook(payload))
+    except Exception:
+        logger.exception("Error general en webhook de Messenger")
+        return "Temporary failure", 500
+    return "EVENT_RECEIVED", 200
 
 
 # ── Inicialización del bot ────────────────────────────────────────────────────
