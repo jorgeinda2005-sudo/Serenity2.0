@@ -69,7 +69,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     guardar_usuario(user.id, user.username, user.first_name, user.last_name)
     context.user_data.clear()------*********************************************************************
     await update.message.reply_text(
-        f"ola {user.first_name} 👋 Soy *Serenity*, tu espacio seguro en la UNACAR.\n\n"
+        f"olaa {user.first_name} 👋 Soy *Serenity*, tu espacio seguro en la UNACAR.\n\n"
         "🔒 *Tu privacidad es importante para nosotros.*\n"
         "Tus conversaciones son privadas y no se comparten con otras personas. En caso de que durante una conversación se active "
         "una alerta de riesgo, la información podrá ser compartida únicamente con los psicólogos de la universidad, "
