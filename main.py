@@ -67,7 +67,7 @@ def contiene_insulto(texto):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     guardar_usuario(user.id, user.username, user.first_name, user.last_name)
-    context.user_data.clear()
+    context.user_data.clear()------*********************************************************************
     await update.message.reply_text(
         f"ola {user.first_name} 👋 Soy *Serenity*, tu espacio seguro en la UNACAR.\n\n"
         "🔒 *Tu privacidad es importante para nosotros.*\n"
